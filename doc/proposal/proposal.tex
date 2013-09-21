@@ -1,6 +1,97 @@
-\title{Project proposal}
+\nonstopmode
+\title{CS 6422 Project Proposal}
 \author{Christopher Martin\\{\tt chris.martin@gatech.edu}}
 
-% Motivation: what you wish/plan to learn
-% Proposed work plan
-% Bibliography
+\documentclass{article}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Relational databases tend to have weak security features, which can be
+problematic for information systems that require strong security guarantees.
+This project will extend an open source database system to enable enforcement
+of multi-level compartmental mandatory access control policies.
+
+\end{abstract}
+
+\section{Security model}
+
+This project assumes a simplified and generalized version of the rules
+used by the U.S. Department of Defense to protect classified data.
+
+\begin{description}
+
+  \item[Sensitivity level] A fully ordered set of labels. Herein we call
+    these labels $0$, $1$, $2$, and $3$, where the infimum level
+    $0$ denotes the least sensitive data, and the supremum level $3$
+    is applied to the most highly-guarded secrets.
+
+  \item[Compartment] A set of labels indicating topics to which data
+    pertains. This set is partially ordered because topics may be nested
+    hierarchically. For example, if the compartment {\it Food} contains
+    the compartments {\it Apples} and {\it Bananas}, then
+    ${\it Food} > {\it Bananas}$, but {\it Apples} and {\it Bananas}
+    are incomparable.
+
+  \item[Marking] A marking consists of one sensitivity level and any
+    number of compartments. We denote this by separating the components
+    with slashes, such as {\it 2/Apples/Bananas}. Markings form a lattice
+    where the infinum is {\it 0} and the supremum is a marking with the
+    highest sensitivity and every compartment.
+
+  \item[Credential] A credential consists of a sensitivity level and
+    a compartment. Each subject has a set of credentials.
+
+\end{description}
+
+A subject has read access to data marked by
+{\it $\ell$/$C_1$/$C_2$/\ldots/$C_n$} only if for all $i \in [1, n]$
+the subject has a credential ($\ell'$, $C'$) such that
+$\ell' \ge \ell$ and $C' \ge C_i$.
+
+\section{Implementation}
+
+The deliverable will be a modified version of
+H2\footnote{H2 database: http://h2database.com/},
+an open source pure-Java DBMS.
+
+H2's internal schema consists of {\tt MetaTable}s, one of which is
+for {\tt User}s. This schema will need to be extended to store user
+credentials. A user with the {\it modify-credentials} {\tt Role}
+will be able to invoke a built-in procedure to modify users'
+credentials.
+
+One candidate idea to achieve information hiding is to shadow every
+{\tt Table} with a {\tt TableView} that selects only rows that the
+user is allowed to access. When the connection is first established,
+we can use the user's credentials and the compartment hierarchy to
+fill a metatable of credentials that the user does {\it not} have.
+With that set precomputed, it should be possible to generate each
+table's view by selecting all rows that do not require those credentials.
+
+Oracle has a similar extension to Oracle Database called
+Oracle Label Security (OLS)\footnote{
+Oracle Label Security:
+\url{http://www.oracle.com/us/products/database/options/label-security/overview/index.html}
+} which may serve as inspiration.
+
+\begin{description}
+
+  \item[Phase 1] Clone the H2 SVN repository in git, and identify a stable
+    version to use as a baseline for modifications.
+    Establish a relational schema, test data, and queries to use for performance
+    testing.
+
+  \item[Phase 2] Build proof of concept for shadowing table views,
+    using a fixed set of user credentials. Add procedures for setting row markings.
+    Write tests to demonstrate correctness of security policy enforcement.
+
+  \item[Phase 3] Add user credential management procedures, and initialize
+    credential tables when a database connection is established.
+    Run performance tests to measure the slowdown introduced by the security checks.
+
+\end{description}
+
+\end{document}
