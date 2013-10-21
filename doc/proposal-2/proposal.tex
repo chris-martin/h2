@@ -41,13 +41,83 @@ One candidate idea to achieve information hiding is to shadow every {\tt Table} 
 
 Oracle has a similar extension to Oracle Database called Oracle Label Security (OLS)\footnote{Oracle Label Security: \url{http://www.oracle.com/us/products/database/options/label-security/overview/index.html}} which may serve as inspiration.
 
-\begin{description}
+\pagebreak
 
-  \item[Phase 1] Clone the H2 SVN repository in git, and identify a stable version to use as a baseline for modifications. Establish a relational schema, test data, and queries to use for performance testing.
+\section{Task breakdown}
 
-  \item[Phase 2] Build proof of concept for shadowing table views, using a fixed set of user credentials. Add procedures for setting row markings. Write tests to demonstrate correctness of security policy enforcement.
+\paragraph{Setup}
 
-  \item[Phase 3] Add user credential management procedures, and initialize credential tables when a database connection is established. Run performance tests to measure the slowdown introduced by the security checks.
+\begin{itemize}
+\item Clone the H2 SVN repository in git.
+\item Identify a stable version to use as a baseline for modifications.
+\end{itemize}
+
+\paragraph{Proof of concept}
+
+\begin{itemize}
+\item Build proof of concept for shadowing table views, using a fixed set of user credentials.
+\item Write tests to demonstrate correctness of security policy enforcement.
+\item Run performance tests to measure the slowdown introduced by the security checks.
+\end{itemize}
+
+\paragraph{Evaluation}
+
+\begin{itemize}
+\item Demonstrate correctness of security properties
+\item Measure performance
+\end{itemize}
+
+\paragraph{Extended features}
+
+If time permits, complete the full feature set to make this project truly usable.
+
+\begin{itemize}
+\item Add procedures for setting row markings.
+\item Add user credential management procedures.
+\item When a database connection is established, initialize credential tables for the user.
+\end{itemize}
+
+\pagebreak
+
+\section{Evaluation plan}
+
+The test setup models a system for storing multi-page documents.
+
+\paragraph{Person}
+\begin{verbatim}
+  user_id      int       pk
+  user_name    varchar
+\end{verbatim}
+
+\paragraph{Document}
+\begin{verbatim}
+  doc_id       int       pk
+  title        varchar
+  released     date
+  author       int       fk: Person.user_id
+\end{verbatim}
+
+\paragraph{Page}
+\begin{verbatim}
+  doc_id       int       fk: Document.doc_id
+  page_number  int
+  page_text    clob
+\end{verbatim}
+
+The {\tt Document} and {\tt Page} tables are both separately protected with markings, so a user who can see a document may not be able to see all of its pages.\footnote{It likely doesn't make sense for a user to have access to a {\tt Page} without also having access to its {\tt Document}, but the database system will not enforce such a rule.}
+
+\paragraph{Correctness}
+
+The foremost question will be whether the security properties hold, which is a simple matter of applying various document and page markings and verifying that {\tt select} queries executed by different database users return appropriate subsets of the data.
+
+\paragraph{Performance}
+
+Performance evaluation will test {\tt insert} and {\tt select} queries to answer two questions:
+
+\begin{itemize}
+\item What is the base cost incurred by enabling security in the most trivial case where all tuples are marked with the minimum sensitivity and no compartments?
+\item How does performance scale as a function of the number of tuples and the number of security compartments, in comparison with the same system without the security feature?
+\end{itemize}
 
 \end{description}
 
