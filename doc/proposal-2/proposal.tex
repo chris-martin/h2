@@ -33,13 +33,13 @@ A subject has read access to data marked by {\it $\ell$/$C_1$/$C_2$/\ldots/$C_n$
 
 \section{Implementation}
 
-The deliverable will be a modified version of H2\footnote{H2 database: http://h2database.com/}, an open source pure-Java DBMS.
+The deliverable will be a modified version of H2\cite{h2}, an open source pure-Java DBMS.
 
 H2's internal schema consists of {\tt MetaTable}s, one of which is for {\tt User}s. This schema will need to be extended to store user credentials. A user with the {\it modify-credentials} {\tt Role} will be able to invoke a built-in procedure to modify users' credentials.
 
 One candidate idea to achieve information hiding is to shadow every {\tt Table} with a {\tt TableView} that selects only rows that the user is allowed to access. When the connection is first established, we can use the user's credentials and the compartment hierarchy to fill a metatable of credentials that the user does {\it not} have. With that set precomputed, it should be possible to generate each table's view by selecting all rows that do not require those credentials.
 
-Oracle has a similar extension to Oracle Database called Oracle Label Security (OLS)\footnote{Oracle Label Security: \url{http://www.oracle.com/us/products/database/options/label-security/overview/index.html}} which may serve as inspiration.
+Oracle has a similar extension to Oracle Database called Oracle Label Security (OLS)\cite{ols} which may serve as inspiration.
 
 \pagebreak
 
@@ -120,5 +120,11 @@ Performance evaluation will test {\tt insert} and {\tt select} queries to answer
 \end{itemize}
 
 \end{description}
+
+\bibliographystyle{plainnat}
+\begin{thebibliography}{99}
+\bibitem{h2}{H2 database. \url{http://h2database.com/}}
+\bibitem{ols}{Oracle Label Security. \url{http://www.oracle.com/us/products/database/options/label-security/overview/index.html}}
+\end{thebibliography}
 
 \end{document}
