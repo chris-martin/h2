@@ -110,6 +110,8 @@ public class Function extends Expression implements FunctionCall {
 
     public static final int ROW_NUMBER = 300;
 
+    public static final int MAC = 400;
+
     private static final int VAR_ARGS = -1;
     private static final long PRECISION_UNKNOWN = -1;
 
@@ -365,6 +367,8 @@ public class Function extends Expression implements FunctionCall {
 
         // pseudo function
         addFunctionWithNull("ROW_NUMBER", ROW_NUMBER, 0, Value.LONG);
+
+        addFunction("MAC", MAC, 1, Value.BOOLEAN);
     }
 
     protected Function(Database database, FunctionInfo info) {
@@ -934,6 +938,14 @@ public class Function extends Expression implements FunctionCall {
         }
         case TRANSACTION_ID: {
             result = session.getTransactionId();
+            break;
+        }
+        case MAC: {
+            if (v0.getType() == Value.INT) {
+                result = ValueBoolean.get(v0.getInt() % 2 == 0);
+            } else {
+                result = ValueNull.INSTANCE;
+            }
             break;
         }
         default:

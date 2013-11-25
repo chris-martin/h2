@@ -27,6 +27,7 @@ import org.h2.index.Cursor;
 import org.h2.index.Index;
 import org.h2.index.IndexType;
 import org.h2.jdbc.JdbcConnection;
+import org.h2.mac.Mac;
 import org.h2.message.DbException;
 import org.h2.message.Trace;
 import org.h2.message.TraceSystem;
@@ -110,6 +111,7 @@ public class Database implements DataHandler {
 
     private Schema mainSchema;
     private Schema infoSchema;
+    private Schema macSchema;
     private int nextSessionId;
     private int nextTempTableId;
     private User systemUser;
@@ -625,8 +627,10 @@ public class Database implements DataHandler {
         systemUser = new User(this, 0, SYSTEM_USER_NAME, true);
         mainSchema = new Schema(this, 0, Constants.SCHEMA_MAIN, systemUser, true);
         infoSchema = new Schema(this, -1, "INFORMATION_SCHEMA", systemUser, true);
+        macSchema = new Schema(this, -2, Mac.MAC_SCHEMA_NAME, systemUser, true);
         schemas.put(mainSchema.getName(), mainSchema);
         schemas.put(infoSchema.getName(), infoSchema);
+        schemas.put(macSchema.getName(), macSchema);
         publicRole = new Role(this, 0, Constants.PUBLIC_ROLE_NAME, true);
         roles.put(Constants.PUBLIC_ROLE_NAME, publicRole);
         systemUser.setAdmin(true);
@@ -673,6 +677,9 @@ public class Database implements DataHandler {
             mvStore.initTransactions();
         }
         recompileInvalidViews(systemSession);
+
+        Mac.initializeMacSchema(systemSession);
+
         starting = false;
         if (!readOnly) {
             // set CREATE_BUILD in a new database
