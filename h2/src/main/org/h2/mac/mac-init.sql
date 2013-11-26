@@ -9,13 +9,13 @@ create table mac.marking
 create table mac.sensitivity
   (
     sensitivity_id int not null,
-    name varchar(32) not null
+    name varchar(255) not null
   )
   ;
 create table mac.compartment
   (
     compartment_id int not null,
-    name varchar(32) not null
+    name varchar(255) not null
   )
   ;
 create table mac.marking_compartment
@@ -31,8 +31,9 @@ create table mac.credential
     compartment_id int not null
   )
   ;
-create table mac.session_credential
+create table mac.user_credential
   (
+    user_name varchar(255) not null,
     credential_id int not null
   )
   ;
@@ -51,9 +52,8 @@ alter table mac.marking_compartment
 alter table mac.credential
   add primary key ( credential_id )
   ;
-
-alter table mac.session_credential
-  add primary key ( credential_id )
+alter table mac.user_credential
+  add primary key ( user_name, credential_id )
   ;
 
 -- foreign keys
@@ -70,7 +70,7 @@ alter table mac.marking_compartment
   add foreign key ( compartment_id )
   references mac.compartment ( compartment_id )
   ;
-alter table mac.session_credential
+alter table mac.user_credential
   add foreign key ( credential_id )
   references mac.credential ( credential_id )
   ;
@@ -89,6 +89,12 @@ create view mac.marking_credential as
   and mac.marking_compartment.compartment_id = mac.credential.compartment_id
   ;
 
+create view mac.session_credential as
+  select mac.user_credential.credential_id credential_id
+  from mac.user_credential
+  where upper(mac.user_credential.user_name) = upper(user())
+  ;
+
 create view mac.session_credential_not as
   (
     select mac.credential.credential_id credential_id
@@ -99,23 +105,23 @@ create view mac.session_credential_not as
     select mac.session_credential.credential_id credential_id
     from mac.session_credential
   )
+;
+
+create view mac.missing_credentials as
+  select
+    mac.marking_credential.marking_id marking_id,
+    mac.marking_credential.credential_id credential_id
+  from mac.marking_credential
+  join mac.session_credential_not
+  on mac.marking_credential.credential_id = mac.session_credential_not.credential_id
   ;
 
 create view mac.marking_see as
   select mac.marking.marking_id marking_id
   from mac.marking
-  where not exists (
-    (
-      select mac.marking_credential.credential_id credential_id
-      from mac.marking_credential
-      where mac.marking_credential.marking_id = mac.marking.marking_id
-    )
-    intersect
-    (
-      select mac.session_credential_not.credential_id credential_id
-      from mac.session_credential_not
-    )
-  )
+  left join mac.missing_credentials
+  on mac.marking.marking_id = mac.missing_credentials.marking_id
+  where mac.missing_credentials.credential_id is null
   ;
 
 -- data
@@ -151,8 +157,8 @@ insert into mac.marking ( marking_id, sensitivity_id ) values ( 3, 2 );
 insert into mac.marking_compartment ( marking_id, compartment_id ) values ( 3, 1 );
 
 -- session credentials
-insert into mac.session_credential ( credential_id ) values ( 1 );
-insert into mac.session_credential ( credential_id ) values ( 2 );
-insert into mac.session_credential ( credential_id ) values ( 3 );
-insert into mac.session_credential ( credential_id ) values ( 4 );
-insert into mac.session_credential ( credential_id ) values ( 7 );
+insert into mac.user_credential ( user_name, credential_id ) values ( 'chris', 1 );
+insert into mac.user_credential ( user_name, credential_id ) values ( 'chris', 2 );
+insert into mac.user_credential ( user_name, credential_id ) values ( 'chris', 3 );
+insert into mac.user_credential ( user_name, credential_id ) values ( 'chris', 4 );
+insert into mac.user_credential ( user_name, credential_id ) values ( 'chris', 8 );
