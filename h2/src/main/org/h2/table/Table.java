@@ -115,6 +115,10 @@ public abstract class Table extends SchemaObjectBase {
         compareMode = schema.getDatabase().getCompareMode();
     }
 
+    public boolean isRestrictedView() {
+        return getTableType().equals(VIEW) && getSchema().isRestricted();
+    }
+
     @Override
     public void rename(String newName) {
         super.rename(newName);

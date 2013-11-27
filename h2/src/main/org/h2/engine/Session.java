@@ -706,7 +706,8 @@ public class Session extends SessionWithState {
                     String tableType = log.getTable().getTableType();
                     if (locks.indexOf(log.getTable()) < 0
                             && !Table.TABLE_LINK.equals(tableType)
-                            && !Table.EXTERNAL_TABLE_ENGINE.equals(tableType)) {
+                            && !Table.EXTERNAL_TABLE_ENGINE.equals(tableType)
+                            && !table.isRestrictedView()) {
                         DbException.throwInternalError();
                     }
                 }

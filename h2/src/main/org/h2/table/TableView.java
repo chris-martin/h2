@@ -312,6 +312,11 @@ public class TableView extends Table {
 
     @Override
     public void addRow(Session session, Row row) {
+        if (getSchema().isRestricted()) {
+            Table shadowTable = getSchema().asRestricted().getShadowTable(session, this);
+            shadowTable.addRow(session, row);
+            return;
+        }
         throw DbException.getUnsupportedException("VIEW");
     }
 

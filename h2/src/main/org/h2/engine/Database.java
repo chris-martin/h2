@@ -34,10 +34,7 @@ import org.h2.message.TraceSystem;
 import org.h2.mvstore.db.MVTableEngine;
 import org.h2.result.Row;
 import org.h2.result.SearchRow;
-import org.h2.schema.Schema;
-import org.h2.schema.SchemaObject;
-import org.h2.schema.Sequence;
-import org.h2.schema.TriggerObject;
+import org.h2.schema.*;
 import org.h2.store.DataHandler;
 import org.h2.store.FileLock;
 import org.h2.store.FileStore;
@@ -625,9 +622,9 @@ public class Database implements DataHandler {
             trace = traceSystem.getTrace(Trace.DATABASE);
         }
         systemUser = new User(this, 0, SYSTEM_USER_NAME, true);
-        mainSchema = new Schema(this, 0, Constants.SCHEMA_MAIN, systemUser, true);
-        infoSchema = new Schema(this, -1, "INFORMATION_SCHEMA", systemUser, true);
-        macSchema = new Schema(this, -2, Mac.MAC_SCHEMA_NAME, systemUser, true);
+        mainSchema = new TraditionalSchema(this, 0, Constants.SCHEMA_MAIN, systemUser, true, false);
+        infoSchema = new TraditionalSchema(this, -1, "INFORMATION_SCHEMA", systemUser, true, false);
+        macSchema = new TraditionalSchema(this, -2, Mac.MAC_SCHEMA_NAME, systemUser, true, false);
         schemas.put(mainSchema.getName(), mainSchema);
         schemas.put(infoSchema.getName(), infoSchema);
         schemas.put(macSchema.getName(), macSchema);

@@ -148,6 +148,8 @@ import org.h2.value.ValueString;
 import org.h2.value.ValueTime;
 import org.h2.value.ValueTimestamp;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * The parser is used to convert a SQL statement string to an command object.
  *
@@ -984,7 +986,7 @@ public class Parser {
         Insert command = new Insert(session);
         currentPrepared = command;
         read("INTO");
-        Table table = readTableOrView();
+        Table table = requireNonNull(readTableOrView());
         command.setTable(table);
         Column[] columns = null;
         if (readIf("(")) {
@@ -4152,6 +4154,7 @@ public class Parser {
 
     private CreateSchema parseCreateSchema() {
         CreateSchema command = new CreateSchema(session);
+        command.setRestricted(readRestricted());
         command.setIfNotExists(readIfNoExists());
         command.setSchemaName(readUniqueIdentifier());
         if (readIf("AUTHORIZATION")) {
@@ -4193,6 +4196,10 @@ public class Parser {
             return true;
         }
         return false;
+    }
+
+    private boolean readRestricted() {
+        return readIf("RESTRICTED");
     }
 
     private CreateConstant parseCreateConstant() {

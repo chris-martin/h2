@@ -67,7 +67,7 @@ public class New {
      * @param c the collection
      * @return the object
      */
-    public static <T> ArrayList<T> arrayList(Collection<T> c) {
+    public static <T> ArrayList<T> arrayList(Collection<? extends T> c) {
         return new ArrayList<T>(c);
     }
 

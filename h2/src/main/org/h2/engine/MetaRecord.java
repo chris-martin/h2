@@ -15,6 +15,8 @@ import org.h2.result.SearchRow;
 import org.h2.value.ValueInt;
 import org.h2.value.ValueString;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * A record in the system table of the database.
  * It contains the SQL statement to create the database object.
@@ -28,13 +30,13 @@ public class MetaRecord implements Comparable<MetaRecord> {
     public MetaRecord(SearchRow r) {
         id = r.getValue(0).getInt();
         objectType = r.getValue(2).getInt();
-        sql = r.getValue(3).getString();
+        sql = requireNonNull(r.getValue(3).getString());
     }
 
     MetaRecord(DbObject obj) {
         id = obj.getId();
         objectType = obj.getType();
-        sql = obj.getCreateSQL();
+        sql = requireNonNull(obj.getCreateSQL());
     }
 
     void setRecord(SearchRow r) {

@@ -82,4 +82,23 @@ public class CreateTableData {
      */
     public boolean isHidden;
 
+    public CreateTableData copy() {
+        CreateTableData copy = new CreateTableData();
+
+        copy.schema = schema;
+        copy.tableName = tableName;
+        copy.id = id;
+        copy.columns = columns == null ? null : New.arrayList(columns);
+        copy.temporary = temporary;
+        copy.globalTemporary = globalTemporary;
+        copy.persistIndexes = persistIndexes;
+        copy.persistData = persistData;
+        copy.create = create;
+        copy.session = session;
+        copy.tableEngine = tableEngine;
+        copy.tableEngineParams = tableEngineParams == null ? null : New.arrayList(tableEngineParams);
+        copy.isHidden = isHidden;
+
+        return copy;
+    }
 }

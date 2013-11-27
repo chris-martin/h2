@@ -12,7 +12,9 @@ import org.h2.engine.Database;
 import org.h2.engine.Session;
 import org.h2.engine.User;
 import org.h2.message.DbException;
+import org.h2.schema.RestrictedSchema;
 import org.h2.schema.Schema;
+import org.h2.schema.TraditionalSchema;
 
 /**
  * This class represents the statement
@@ -23,6 +25,7 @@ public class CreateSchema extends DefineCommand {
     private String schemaName;
     private String authorization;
     private boolean ifNotExists;
+    private boolean restricted;
 
     public CreateSchema(Session session) {
         super(session);
@@ -30,6 +33,10 @@ public class CreateSchema extends DefineCommand {
 
     public void setIfNotExists(boolean ifNotExists) {
         this.ifNotExists = ifNotExists;
+    }
+
+    public void setRestricted(boolean restricted) {
+        this.restricted = restricted;
     }
 
     @Override
@@ -48,9 +55,24 @@ public class CreateSchema extends DefineCommand {
             }
             throw DbException.get(ErrorCode.SCHEMA_ALREADY_EXISTS_1, schemaName);
         }
-        int id = getObjectId();
-        Schema schema = new Schema(db, id, schemaName, user, false);
-        db.addDatabaseObject(session, schema);
+
+        if (restricted) {
+
+            TraditionalSchema shadowSchema = new TraditionalSchema(
+                db, getObjectId(), schemaName + "_shadow", user, false, true);
+
+            db.addDatabaseObject(session, shadowSchema);
+
+            RestrictedSchema restrictedSchema = new RestrictedSchema(
+                shadowSchema, getObjectId(), schemaName);
+
+            db.addDatabaseObject(session, restrictedSchema);
+        } else {
+
+            int id = getObjectId();
+            Schema schema = new TraditionalSchema(db, id, schemaName, user, false, false);
+            db.addDatabaseObject(session, schema);
+        }
         return 0;
     }
 

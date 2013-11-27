@@ -29,7 +29,7 @@ import org.h2.value.DataType;
  */
 public class CreateTable extends SchemaCommand {
 
-    private final CreateTableData data = new CreateTableData();
+    private final CreateTableData data;
     private final ArrayList<DefineCommand> constraintCommands = New.arrayList();
     private IndexColumn[] pkColumns;
     private boolean ifNotExists;
@@ -41,8 +41,14 @@ public class CreateTable extends SchemaCommand {
 
     public CreateTable(Session session, Schema schema) {
         super(session, schema);
+        data = new CreateTableData();
         data.persistIndexes = true;
         data.persistData = true;
+    }
+
+    public CreateTable(CreateTableData data) {
+        super(data.session, data.schema);
+        this.data = data;
     }
 
     public void setQuery(Query query) {
@@ -132,6 +138,12 @@ public class CreateTable extends SchemaCommand {
         if (!isSessionTemporary) {
             db.lockMeta(session);
         }
+
+        if (getSchema().isRestricted()) {
+            getSchema().createTable(data);
+            return 0;
+        }
+
         Table table = getSchema().createTable(data);
         ArrayList<Sequence> sequences = New.arrayList();
         for (Column c : data.columns) {

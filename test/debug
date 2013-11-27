@@ -13,6 +13,7 @@ SBT_OPTS="\
 -XX:+CMSClassUnloadingEnabled \
 -XX:PermSize=256M \
 -XX:MaxPermSize=512M \
+-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5004
 "
 
-java $SBT_OPTS -jar "$JAR" "$@"
+java $SBT_OPTS -jar "$JAR" run
