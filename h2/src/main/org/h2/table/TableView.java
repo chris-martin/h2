@@ -6,7 +6,6 @@
  */
 package org.h2.table;
 
-import java.util.ArrayList;
 import org.h2.command.Prepared;
 import org.h2.command.dml.Query;
 import org.h2.constant.ErrorCode;
@@ -17,27 +16,21 @@ import org.h2.expression.Expression;
 import org.h2.expression.ExpressionVisitor;
 import org.h2.expression.Parameter;
 import org.h2.index.Index;
-import org.h2.index.IndexType;
 import org.h2.index.ViewIndex;
 import org.h2.message.DbException;
 import org.h2.result.LocalResult;
 import org.h2.result.ResultInterface;
-import org.h2.result.Row;
 import org.h2.result.SortOrder;
 import org.h2.schema.Schema;
-import org.h2.util.IntArray;
-import org.h2.util.New;
-import org.h2.util.SmallLRUCache;
-import org.h2.util.StatementBuilder;
-import org.h2.util.StringUtils;
-import org.h2.util.SynchronizedVerifier;
-import org.h2.util.Utils;
+import org.h2.util.*;
 import org.h2.value.Value;
+
+import java.util.ArrayList;
 
 /**
  * A view is a virtual table that is defined by a query.
  */
-public class TableView extends Table {
+public abstract class TableView extends Table {
 
     private static final long ROW_COUNT_APPROXIMATION = 100;
 
@@ -57,9 +50,19 @@ public class TableView extends Table {
     private LocalResult recursiveResult;
     private boolean tableExpression;
 
-    public TableView(Schema schema, int id, String name, String querySQL, ArrayList<Parameter> params, String[] columnNames,
-            Session session, boolean recursive) {
+    public static TableView create(Schema schema, int id, String name, String querySQL,
+    ArrayList<Parameter> params, String[] columnNames, Session session, boolean recursive) {
+
+        return schema.isRestricted()
+            ? new RestrictedTableView(schema, id, name, querySQL, params, columnNames, session, recursive)
+            : new RegularTableView   (schema, id, name, querySQL, params, columnNames, session, recursive);
+    }
+
+    protected TableView(Schema schema, int id, String name, String querySQL,
+    ArrayList<Parameter> params, String[] columnNames, Session session, boolean recursive) {
+
         super(schema, id, name, false, true);
+
         init(querySQL, params, columnNames, session, recursive);
     }
 
@@ -300,37 +303,6 @@ public class TableView extends Table {
     }
 
     @Override
-    public Index addIndex(Session session, String indexName, int indexId, IndexColumn[] cols, IndexType indexType,
-            boolean create, String indexComment) {
-        throw DbException.getUnsupportedException("VIEW");
-    }
-
-    @Override
-    public void removeRow(Session session, Row row) {
-        throw DbException.getUnsupportedException("VIEW");
-    }
-
-    @Override
-    public void addRow(Session session, Row row) {
-        if (getSchema().isRestricted()) {
-            Table shadowTable = getSchema().asRestricted().getShadowTable(session, this);
-            shadowTable.addRow(session, row);
-            return;
-        }
-        throw DbException.getUnsupportedException("VIEW");
-    }
-
-    @Override
-    public void checkSupportAlter() {
-        throw DbException.getUnsupportedException("VIEW");
-    }
-
-    @Override
-    public void truncate(Session session) {
-        throw DbException.getUnsupportedException("VIEW");
-    }
-
-    @Override
     public long getRowCount(Session session) {
         throw DbException.throwInternalError();
     }
@@ -450,11 +422,13 @@ public class TableView extends Table {
      * @param topQuery the top level query
      * @return the view table
      */
-    public static TableView createTempView(Session session, User owner, String name, Query query, Query topQuery) {
+    public static TableView createTempView(
+    Session session, User owner, String name, Query query, Query topQuery) {
+
         Schema mainSchema = session.getDatabase().getSchema(Constants.SCHEMA_MAIN);
         String querySQL = query.getPlanSQL();
-        TableView v = new TableView(mainSchema, 0, name, querySQL, query.getParameters(), null, session,
-                false);
+        TableView v = TableView.create(
+            mainSchema, 0, name, querySQL, query.getParameters(), null, session, false);
         if (v.createException != null) {
             throw v.createException;
         }

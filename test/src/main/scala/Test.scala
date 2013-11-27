@@ -1,3 +1,26 @@
+/*
+
+Open question:
+ - Put the marking in the shadow table, or add another table to link them?
+
+In the shadow table cons:
+ - Potential naming conflict with the shadow table's columns
+
+Linking table cons:
+ - Have to figure out the primary key to link on
+ - Slower
+
+What about update/delete support?
+ - I may need to depend on the primary key anyway.
+
+
+
+Solution:
+ - Add a marking_id column to every shadow table
+ - Modify insert syntax to allow specifying marking
+ - Update/delete/re-mark is only possible if a PK exists
+
+ */
 import java.sql.{Connection, DriverManager}
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL.{using => createJooqContext}
@@ -39,7 +62,8 @@ object Test {
         )
         jooq.execute(
           """
-            |create table vault.doc ( title varchar(12), x int );
+            |create table vault.doc ( title varchar(12) not null, x int );
+            |alter table vault.doc add primary key ( title );
           """.stripMargin
         )
         jooq.execute(
@@ -50,6 +74,16 @@ object Test {
         println(jooq.fetch(
           """
             |show schemas;
+          """.stripMargin
+        ))
+        println(jooq.fetch(
+          """
+            |show tables from vault_shadow;
+          """.stripMargin
+        ))
+        println(jooq.fetch(
+          """
+            |show columns from vault_shadow.doc;
           """.stripMargin
         ))
         println(jooq.fetch(

@@ -59,7 +59,7 @@ public class CreateSchema extends DefineCommand {
         if (restricted) {
 
             RegularSchema shadowSchema = new RegularSchema(
-                db, getObjectId(), schemaName + "_shadow", user, false, true);
+                db, getObjectId(), schemaName + "_SHADOW", user, false, true);
 
             db.addDatabaseObject(session, shadowSchema);
 

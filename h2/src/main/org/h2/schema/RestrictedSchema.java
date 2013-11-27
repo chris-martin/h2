@@ -51,9 +51,9 @@ public class RestrictedSchema extends SchemaBase {
         return this;
     }
 
-    public Table getShadowTable(Session session, TableView view) {
+    public Table getShadowTable(TableView view) {
 
-        return shadowSchema.getTableOrView(session, view.getName());
+        return shadowSchema.getTableOrView(null, view.getName());
     }
 
     @Override
@@ -101,7 +101,8 @@ public class RestrictedSchema extends SchemaBase {
     @Override
     public void add(SchemaObject obj) {
         if (obj.getType() != DbObject.TABLE_OR_VIEW) {
-            throw throwInternalError("restricted schema may only contain views");
+            shadowSchema.add(obj);
+            return;
         }
         String name = obj.getName();
         if (SysProperties.CHECK && views.get(name) != null) {
@@ -142,31 +143,32 @@ public class RestrictedSchema extends SchemaBase {
 
     @Override
     public Constraint findConstraint(Session session, String name) {
-        throw new UnsupportedOperationException();
+        return shadowSchema.findConstraint(session, name);
     }
 
     @Override
     public Constant findConstant(String constantName) {
-        throw new UnsupportedOperationException();
+        return shadowSchema.findConstant(constantName);
     }
 
     @Override
     public FunctionAlias findFunction(String functionAlias) {
-        throw new UnsupportedOperationException();
+        return shadowSchema.findFunction(functionAlias);
     }
 
     @Override
     public void freeUniqueName(String name) {
+        shadowSchema.freeUniqueName(name);
     }
 
     @Override
     public String getUniqueConstraintName(Session session, Table table) {
-        throw new UnsupportedOperationException();
+        return shadowSchema.getUniqueConstraintName(session, table);
     }
 
     @Override
     public String getUniqueIndexName(Session session, Table table, String prefix) {
-        throw new UnsupportedOperationException();
+        return shadowSchema.getUniqueIndexName(session, table, prefix);
     }
 
     @Override
@@ -183,22 +185,22 @@ public class RestrictedSchema extends SchemaBase {
 
     @Override
     public Index getIndex(String name) {
-        throw new UnsupportedOperationException();
+        return shadowSchema.getIndex(name);
     }
 
     @Override
     public Constraint getConstraint(String name) {
-        throw new UnsupportedOperationException();
+        return shadowSchema.getConstraint(name);
     }
 
     @Override
     public Constant getConstant(String constantName) {
-        throw new UnsupportedOperationException();
+        return shadowSchema.getConstant(constantName);
     }
 
     @Override
     public Sequence getSequence(String sequenceName) {
-        throw new UnsupportedOperationException();
+        return shadowSchema.getSequence(sequenceName);
     }
 
     @Override
@@ -236,7 +238,7 @@ public class RestrictedSchema extends SchemaBase {
 
     @Override
     public void remove(SchemaObject obj) {
-        throw new UnsupportedOperationException();
+        shadowSchema.remove(obj);
     }
 
     @Override
@@ -257,7 +259,7 @@ public class RestrictedSchema extends SchemaBase {
         select.addCondition(new Comparison(
             data.session,
             Comparison.EQUAL,
-            new ExpressionColumn(database, "VAULT_shadow", "DOC", "X"), // todo
+            new ExpressionColumn(database, "VAULT_SHADOW", "DOC", "X"), // todo
             ValueExpression.get(ValueInt.get(0))
         ));
         select.init();

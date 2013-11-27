@@ -4403,7 +4403,7 @@ public class Parser {
             session.removeLocalTempTable(recursiveTable);
         }
         int id = database.allocateObjectId();
-        TableView view = new TableView(schema, id, tempViewName, querySQL, null, cols, session, true);
+        TableView view = TableView.create(schema, id, tempViewName, querySQL, null, cols, session, true);
         view.setTableExpression(true);
         view.setTemporary(true);
         session.addLocalTempTable(view);

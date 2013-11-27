@@ -197,7 +197,7 @@ public class RegularSchema extends SchemaBase {
 
     @Override
     public void add(SchemaObject obj) {
-        if (SysProperties.CHECK && obj.getSchema() != this) {
+        if (SysProperties.CHECK && obj.getSchema() != this && !shadow) {
             throwInternalError("wrong schema");
         }
         String name = obj.getName();
