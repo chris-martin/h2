@@ -32,7 +32,7 @@ import static org.h2.message.DbException.throwInternalError;
  * A schema as created by the SQL statement
  * CREATE SCHEMA
  */
-public class TraditionalSchema extends SchemaBase {
+public class RegularSchema extends SchemaBase {
 
     private User owner;
     private final boolean system;
@@ -63,7 +63,7 @@ public class TraditionalSchema extends SchemaBase {
      * @param system if this is a system schema (such a schema can not be
      *            dropped)
      */
-    public TraditionalSchema(Database database, int id, String schemaName, User owner, boolean system, boolean shadow) {
+    public RegularSchema(Database database, int id, String schemaName, User owner, boolean system, boolean shadow) {
         tablesAndViews = database.newStringMap();
         indexes = database.newStringMap();
         sequences = database.newStringMap();

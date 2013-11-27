@@ -30,11 +30,11 @@ import static org.h2.message.DbException.throwInternalError;
  */
 public class RestrictedSchema extends SchemaBase {
 
-    private final TraditionalSchema shadowSchema;
+    private final RegularSchema shadowSchema;
 
     private final HashMap<String, TableView> views;
 
-    public RestrictedSchema(TraditionalSchema shadowSchema, int id, String schemaName) {
+    public RestrictedSchema(RegularSchema shadowSchema, int id, String schemaName) {
         this.shadowSchema = shadowSchema;
         Database database = shadowSchema.getDatabase();
         views = database.newStringMap();

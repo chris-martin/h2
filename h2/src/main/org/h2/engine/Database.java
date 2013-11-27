@@ -622,9 +622,9 @@ public class Database implements DataHandler {
             trace = traceSystem.getTrace(Trace.DATABASE);
         }
         systemUser = new User(this, 0, SYSTEM_USER_NAME, true);
-        mainSchema = new TraditionalSchema(this, 0, Constants.SCHEMA_MAIN, systemUser, true, false);
-        infoSchema = new TraditionalSchema(this, -1, "INFORMATION_SCHEMA", systemUser, true, false);
-        macSchema = new TraditionalSchema(this, -2, Mac.MAC_SCHEMA_NAME, systemUser, true, false);
+        mainSchema = new RegularSchema(this, 0, Constants.SCHEMA_MAIN, systemUser, true, false);
+        infoSchema = new RegularSchema(this, -1, "INFORMATION_SCHEMA", systemUser, true, false);
+        macSchema = new RegularSchema(this, -2, Mac.MAC_SCHEMA_NAME, systemUser, true, false);
         schemas.put(mainSchema.getName(), mainSchema);
         schemas.put(infoSchema.getName(), infoSchema);
         schemas.put(macSchema.getName(), macSchema);

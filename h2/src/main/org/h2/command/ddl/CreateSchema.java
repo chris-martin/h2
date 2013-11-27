@@ -12,9 +12,9 @@ import org.h2.engine.Database;
 import org.h2.engine.Session;
 import org.h2.engine.User;
 import org.h2.message.DbException;
+import org.h2.schema.RegularSchema;
 import org.h2.schema.RestrictedSchema;
 import org.h2.schema.Schema;
-import org.h2.schema.TraditionalSchema;
 
 /**
  * This class represents the statement
@@ -58,7 +58,7 @@ public class CreateSchema extends DefineCommand {
 
         if (restricted) {
 
-            TraditionalSchema shadowSchema = new TraditionalSchema(
+            RegularSchema shadowSchema = new RegularSchema(
                 db, getObjectId(), schemaName + "_shadow", user, false, true);
 
             db.addDatabaseObject(session, shadowSchema);
@@ -70,7 +70,7 @@ public class CreateSchema extends DefineCommand {
         } else {
 
             int id = getObjectId();
-            Schema schema = new TraditionalSchema(db, id, schemaName, user, false, false);
+            Schema schema = new RegularSchema(db, id, schemaName, user, false, false);
             db.addDatabaseObject(session, schema);
         }
         return 0;
