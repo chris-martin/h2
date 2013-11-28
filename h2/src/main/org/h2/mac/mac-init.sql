@@ -105,7 +105,7 @@ create view mac.session_credential_not as
     select mac.session_credential.credential_id credential_id
     from mac.session_credential
   )
-;
+  ;
 
 create view mac.missing_credentials as
   select
@@ -146,15 +146,15 @@ insert into mac.credential ( credential_id, sensitivity_id, compartment_id ) val
 insert into mac.credential ( credential_id, sensitivity_id, compartment_id ) values ( 9, 3, 2 );
 
 -- 1 - public
-insert into mac.marking ( marking_id, sensitivity_id ) values ( 1, 0 );
+insert into mac.marking ( marking_id, sensitivity_id ) values ( 0, 0 );
 
 -- 2 - worker
-insert into mac.marking ( marking_id, sensitivity_id ) values ( 2, 1 );
-insert into mac.marking_compartment ( marking_id, compartment_id ) values ( 2, 0 );
+insert into mac.marking ( marking_id, sensitivity_id ) values ( 1, 1 );
+insert into mac.marking_compartment ( marking_id, compartment_id ) values ( 1, 0 );
 
 -- 3 - manager/apples
-insert into mac.marking ( marking_id, sensitivity_id ) values ( 3, 2 );
-insert into mac.marking_compartment ( marking_id, compartment_id ) values ( 3, 1 );
+insert into mac.marking ( marking_id, sensitivity_id ) values ( 2, 2 );
+insert into mac.marking_compartment ( marking_id, compartment_id ) values ( 2, 1 );
 
 -- session credentials
 insert into mac.user_credential ( user_name, credential_id ) values ( 'chris', 1 );

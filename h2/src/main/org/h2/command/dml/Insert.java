@@ -18,6 +18,7 @@ import org.h2.engine.UndoLogRecord;
 import org.h2.expression.Expression;
 import org.h2.expression.Parameter;
 import org.h2.index.Index;
+import org.h2.mac.Marking;
 import org.h2.message.DbException;
 import org.h2.result.ResultInterface;
 import org.h2.result.ResultTarget;
@@ -27,6 +28,9 @@ import org.h2.table.Table;
 import org.h2.util.New;
 import org.h2.util.StatementBuilder;
 import org.h2.value.Value;
+import org.h2.value.ValueInt;
+
+import static org.h2.message.DbException.throwInternalError;
 
 /**
  * This class represents the statement
@@ -41,6 +45,8 @@ public class Insert extends Prepared implements ResultTarget {
     private boolean sortedInsertMode;
     private int rowNumber;
     private boolean insertFromSelect;
+    private Marking marking;
+    private int markingId;
 
     public Insert(Session session) {
         super(session);
@@ -64,6 +70,10 @@ public class Insert extends Prepared implements ResultTarget {
 
     public void setQuery(Query query) {
         this.query = query;
+    }
+
+    public void setMarking(Marking marking) {
+        this.marking = marking;
     }
 
     /**
@@ -92,7 +102,24 @@ public class Insert extends Prepared implements ResultTarget {
     }
 
     private int insertRows() {
+
         session.getUser().checkRight(table, Right.INSERT);
+
+        if (table.isRestrictedView()) {
+            if (marking == null) {
+                marking = Marking.parse("");
+            }
+        } else {
+            if (marking != null) {
+                throw throwInternalError("Cannot set marking on unrestricted schema " +
+                    table.getSchema().getName());
+            }
+        }
+
+        if (marking != null) {
+            markingId = marking.persist(session.getDatabase());
+        }
+
         setCurrentRowNumber(0);
         table.fire(session, Trigger.INSERT, true);
         rowNumber = 0;
@@ -124,7 +151,7 @@ public class Insert extends Prepared implements ResultTarget {
                 boolean done = table.fireBeforeRow(session, null, newRow);
                 if (!done) {
                     table.lock(session, true, false);
-                    table.addRow(session, newRow);
+                    addRow(newRow);
                     session.log(table, UndoLogRecord.INSERT, newRow);
                     table.fireAfterRow(session, null, newRow, false);
                 }
@@ -163,10 +190,19 @@ public class Insert extends Prepared implements ResultTarget {
         table.validateConvertUpdateSequence(session, newRow);
         boolean done = table.fireBeforeRow(session, null, newRow);
         if (!done) {
-            table.addRow(session, newRow);
+            addRow(newRow);
             session.log(table, UndoLogRecord.INSERT, newRow);
             table.fireAfterRow(session, null, newRow, false);
         }
+    }
+
+    private void addRow(Row newRow) {
+        if (markingId != 0) {
+            newRow.getValueList()[
+                table.getColumn("MARKING_ID").getColumnId()
+            ] = ValueInt.get(markingId);
+        }
+        table.addRow(session, newRow);
     }
 
     @Override

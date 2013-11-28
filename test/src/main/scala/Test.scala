@@ -5,11 +5,15 @@ Step 1: Add marking_id column to shadow tables
 Step 2: Update query for restricted views to filter on marking id
 Step 3: Modify insert syntax to allow specifying marking id
 
+Miscellaneous to-do:
+ - The restricted view shouldn't select marking_id
+
 
 
 
 How to store a marking:
  - Add marking_id column to every shadow table
+ - marking_id default value is 0, which is hard-coded to the empty marking
 
 How to read a marking:
  - Built-in function RENDER_MARKING converts marking id to string
@@ -130,14 +134,14 @@ object Test {
 
         jooq.execute(
           """
-            |insert into vault.doc ( title, x ) values ( 'puppies.jpg', 2 );
-            |insert into vault.doc ( title, x ) values ( 'moonbase.doc', 3 );
+            |insert into vault.doc ( title, x ) values ( 'puppies.jpg', 1 );
+            |insert into vault.doc ( title, x ) values ( 'moonbase.doc', 2 );
           """.stripMargin
         )
         jooq.execute(
           """
-            |insert into vault.doc2 ( title, x ) values ( 'puppies.jpg', 3 );
-            |insert into vault.doc2 ( title, x ) values ( 'moonbase.doc', 3 );
+            |insert into vault.doc2 ( title, x ) values ( 'puppies.jpg', 2 );
+            |insert into vault.doc2 ( title, x ) values ( 'moonbase.doc', 2 );
           """.stripMargin
         )
 

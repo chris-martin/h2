@@ -118,6 +118,7 @@ import org.h2.expression.ValueExpression;
 import org.h2.expression.Variable;
 import org.h2.expression.Wildcard;
 import org.h2.index.Index;
+import org.h2.mac.Marking;
 import org.h2.message.DbException;
 import org.h2.result.SortOrder;
 import org.h2.schema.Schema;
@@ -988,6 +989,11 @@ public class Parser {
         read("INTO");
         Table table = requireNonNull(readTableOrView());
         command.setTable(table);
+
+        if (readIf("MARKED")) {
+            command.setMarking(Marking.parse(readString()));
+        }
+
         Column[] columns = null;
         if (readIf("(")) {
             if (isSelect()) {

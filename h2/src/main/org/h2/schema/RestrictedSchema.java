@@ -268,7 +268,9 @@ public class RestrictedSchema extends SchemaBase {
         data.id = 0;
         data = data.copy();
         data.schema = shadowSchema;
-        data.columns.add(new Column("MARKING_ID", Value.INT));
+        Column markingColumn = new Column("MARKING_ID", Value.INT);
+        markingColumn.setDefaultExpression(data.session, ValueExpression.get(ValueInt.get(0)));
+        data.columns.add(markingColumn);
         new CreateTable(data).update();
 
         AlterTableAddConstraint fk = new AlterTableAddConstraint(data.session, shadowSchema, false);
