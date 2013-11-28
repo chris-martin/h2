@@ -2,12 +2,13 @@ package org.h2.mac;
 
 import org.h2.engine.Database;
 import org.h2.util.New;
+import org.h2.value.Value;
+import org.h2.value.ValueString;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Scanner;
-import java.util.Set;
+import java.util.*;
 
+import static org.h2.mac.Queries.lines;
+import static org.h2.mac.Queries.queryForInteger;
 import static org.h2.message.DbException.throwInternalError;
 
 public class Marking {
@@ -71,11 +72,22 @@ public class Marking {
             return 0;
         }
 
-        return 0; // todo
-/*
+        Integer sensitivityId = queryForInteger(
+            database.getSystemSession(),
+            lines(
+                "select mac.sensitivity.sensitivity_id",
+                "from mac.sensitivity",
+                "where upper(mac.sensitivity.name) = upper(?)"
+            ),
+            Arrays.<Value>asList(
+                ValueString.get(sensitivity)
+            )
+        );
 
-        new Parser(database.getSystemSession()).prepare(
-            "select mac.sensitivity.sensitivity_id from mac.sensitivity where upper(mac.sensitivity.name) = upper(?)"
-        ).;*/
+        if (sensitivityId == null) {
+            // todo
+        }
+
+        return 0; // todo
     }
 }
