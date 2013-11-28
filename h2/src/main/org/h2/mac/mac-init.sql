@@ -116,7 +116,7 @@ create view mac.missing_credentials as
   on mac.marking_credential.credential_id = mac.session_credential_not.credential_id
   ;
 
-create view mac.marking_see as
+create view mac.session_marking as
   select mac.marking.marking_id marking_id
   from mac.marking
   left join mac.missing_credentials

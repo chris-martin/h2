@@ -39,6 +39,8 @@ import org.h2.value.CompareMode;
 import org.h2.value.Value;
 import org.h2.value.ValueNull;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * This is the base class for most tables.
  * A table contains a list of columns and a list of rows.
@@ -623,10 +625,12 @@ public abstract class Table extends SchemaObjectBase {
      * @throws DbException if the column was not found
      */
     public Column getColumn(String columnName) {
+        requireNonNull(columnName);
         Column column = columnMap.get(columnName);
         if (column == null) {
             throw DbException.get(ErrorCode.COLUMN_NOT_FOUND_1, columnName);
         }
+        requireNonNull(column.getName());
         return column;
     }
 

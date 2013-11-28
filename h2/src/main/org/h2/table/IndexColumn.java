@@ -8,6 +8,8 @@ package org.h2.table;
 
 import org.h2.result.SortOrder;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * This represents a column item of an index. This is required because some
  * indexes support descending sorted columns.
@@ -48,6 +50,12 @@ public class IndexColumn {
         return buff.toString();
     }
 
+    public static IndexColumn named(String name) {
+        IndexColumn indexColumn = new IndexColumn();
+        indexColumn.columnName = name;
+        return indexColumn;
+    }
+
     /**
      * Create an array of index columns from a list of columns. The default sort
      * type is used.
@@ -72,7 +80,7 @@ public class IndexColumn {
      */
     public static void mapColumns(IndexColumn[] indexColumns, Table table) {
         for (IndexColumn col : indexColumns) {
-            col.column = table.getColumn(col.columnName);
+            col.column = table.getColumn(requireNonNull(col.columnName));
         }
     }
 }

@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import static java.util.Objects.requireNonNull;
 import static org.h2.message.DbException.throwInternalError;
 
 /**
@@ -334,6 +335,7 @@ public class RegularSchema extends SchemaBase {
 
     @Override
     public Table getTableOrView(Session session, String name) {
+        requireNonNull(name);
         Table table = tablesAndViews.get(name);
         if (table == null) {
             if (session != null) {
