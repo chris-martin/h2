@@ -1,8 +1,6 @@
 package org.h2.mac;
 
-import org.h2.command.Parser;
 import org.h2.engine.Database;
-import org.h2.expression.Parameter;
 import org.h2.util.New;
 
 import java.util.Collections;
@@ -10,7 +8,6 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
 
-import static java.util.Arrays.asList;
 import static org.h2.message.DbException.throwInternalError;
 
 public class Marking {

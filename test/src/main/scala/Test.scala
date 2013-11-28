@@ -134,8 +134,9 @@ object Test {
 
         jooq.execute(
           """
-            |insert into vault.doc ( title, x ) values ( 'puppies.jpg', 1 );
-            |insert into vault.doc ( title, x ) values ( 'moonbase.doc', 2 );
+            |insert into vault.doc marked '' ( title, x ) values ( 'puppies.jpg', 1 );
+            |insert into vault.doc marked '2/A' ( title, x ) values ( 'moonbase.doc', 2 );
+            |insert into vault.doc ( title, x ) values ( 'tech.txt', 3 );
           """.stripMargin
         )
         jooq.execute(

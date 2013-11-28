@@ -46,7 +46,7 @@ public class Insert extends Prepared implements ResultTarget {
     private int rowNumber;
     private boolean insertFromSelect;
     private Marking marking;
-    private int markingId;
+    private Integer markingId;
 
     public Insert(Session session) {
         super(session);
@@ -197,7 +197,7 @@ public class Insert extends Prepared implements ResultTarget {
     }
 
     private void addRow(Row newRow) {
-        if (markingId != 0) {
+        if (markingId != null) {
             newRow.getValueList()[
                 table.getColumn("MARKING_ID").getColumnId()
             ] = ValueInt.get(markingId);
