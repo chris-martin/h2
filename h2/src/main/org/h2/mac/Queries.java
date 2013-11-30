@@ -4,6 +4,7 @@ import org.h2.command.Parser;
 import org.h2.command.Prepared;
 import org.h2.engine.Session;
 import org.h2.result.ResultInterface;
+import org.h2.util.New;
 import org.h2.value.Value;
 
 import java.util.List;
@@ -87,6 +88,49 @@ public final class Queries {
                 return value.getLong();
             default:
                 throw throwInternalError("Expected int or null from query");
+        }
+    }
+
+    public static String selectString(Session session, String sql, List<Value> parameters) {
+
+        Value value = selectValue(session, sql, parameters);
+
+        if (value == null) {
+            return null;
+        }
+
+        switch (value.getType()) {
+            case Value.NULL:
+                return null;
+            case Value.STRING:
+                return value.getString();
+            default:
+                throw throwInternalError("Expected int or null from query");
+        }
+    }
+
+    public interface RowMapper<T> {
+
+        T apply(ResultInterface result);
+    }
+
+    public static <T> List<T> selectList(Session session, String sql, List<Value> parameters,
+    RowMapper<T> rowMapper) {
+
+        Prepared prepared = new Parser(session).prepare(sql);
+        for (int i = 0; i < parameters.size(); i++) {
+            prepared.getParameters().get(i).setValue(parameters.get(i));
+        }
+        ResultInterface result = prepared.query(2);
+
+        try {
+            List<T> list = New.arrayList();
+            while (result.next()) {
+                list.add(rowMapper.apply(result));
+            }
+            return list;
+        } finally {
+            result.close();
         }
     }
 

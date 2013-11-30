@@ -7,19 +7,44 @@ import org.h2.index.IndexType;
 import org.h2.message.DbException;
 import org.h2.result.Row;
 import org.h2.schema.Schema;
+import org.h2.util.New;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class RestrictedTableView extends TableView {
+
+    private final Table shadowTable;
 
     public RestrictedTableView(Schema schema, int id, String name, String querySQL,
     ArrayList<Parameter> params, String[] columnNames, Session session, boolean recursive) {
 
         super(schema, id, name, querySQL, params, columnNames, session, recursive);
+
+        shadowTable = getSchema().asRestricted().getShadowTable(this);
+
+        List<Column> columnList = New.arrayList();
+        for (Column column : columns) {
+            if (!column.getName().equalsIgnoreCase("MARKING_ID")) {
+                columnList.add(column);
+            }
+        }
+        //columnList.add(new Column("MARKING", Value.STRING));
+        setColumns(columnList.toArray(new Column[columnList.size()]));
     }
 
-    private Table shadowTable() {
-        return getSchema().asRestricted().getShadowTable(this);
+    @Override
+    public boolean isRestrictedView() {
+        return true;
+    }
+
+    @Override
+    public RestrictedTableView asRestrictedView() {
+        return this;
+    }
+
+    public Table getShadowTable() {
+        return shadowTable;
     }
 
     @Override
@@ -27,16 +52,16 @@ public class RestrictedTableView extends TableView {
     IndexColumn[] cols, IndexType indexType, boolean create, String indexComment) {
 
         for (IndexColumn indexColumn : cols) {
-            indexColumn.column = shadowTable().getColumn(indexColumn.column.getName());
+            indexColumn.column = shadowTable.getColumn(indexColumn.column.getName());
         }
 
-        return shadowTable().addIndex(
+        return shadowTable.addIndex(
             session, indexName, indexId, cols, indexType, create, indexComment);
     }
 
     @Override
     public void addRow(Session session, Row row) {
-        shadowTable().addRow(session, row);
+        shadowTable.addRow(session, row);
     }
 
     @Override
@@ -55,22 +80,7 @@ public class RestrictedTableView extends TableView {
     }
 
     @Override
-    public Column getColumn(String columnName) {
-        return shadowTable().getColumn(columnName);
-    }
-
-    @Override
-    public Column getColumn(int index) {
-        return shadowTable().getColumn(index);
-    }
-
-    @Override
-    public Column[] getColumns() {
-        return shadowTable().getColumns();
-    }
-
-    @Override
     public Row getTemplateRow() {
-        return shadowTable().getTemplateRow();
+        return shadowTable.getTemplateRow();
     }
 }

@@ -4,6 +4,7 @@ import org.h2.engine.Database;
 import org.h2.engine.Session;
 import org.h2.mac.SystemSessions.SystemTransaction;
 import org.h2.mac.SystemSessions.SystemTransactionAction;
+import org.h2.result.ResultInterface;
 import org.h2.util.New;
 import org.h2.value.ValueLong;
 import org.h2.value.ValueString;
@@ -56,6 +57,48 @@ public class Marking {
         }
 
         return marking;
+    }
+
+    public static String render(Session session, final Long markingId) {
+
+        // todo do a permission check to make sure this is a marking the user can see
+
+        return executeSystemTransaction(session.getDatabase(), new SystemTransactionAction<String>() {
+            @Override
+            public String execute(SystemTransaction transaction) {
+
+                Session session = transaction.getSystemSession();
+
+                Marking marking = new Marking();
+
+                marking.sensitivity = new Sensitivity(selectString(session, lines(
+                    "select mac.sensitivity.name",
+                    "from mac.sensitivity",
+                    "join mac.marking",
+                    "on mac.sensitivity.sensitivity_id = mac.marking.sensitivity_id",
+                    "where mac.marking.marking_id = ?"
+                ), values(
+                    ValueLong.get(markingId)
+                )));
+
+                marking.compartments = New.hashSet(selectList(session, lines(
+                    "select mac.compartment.name",
+                    "from mac.compartment",
+                    "join mac.marking_compartment",
+                    "on mac.compartment.compartment_id = mac.marking_compartment.compartment_id",
+                    "where mac.marking_compartment.marking_id = ?"
+                ), values(
+                    ValueLong.get(markingId)
+                ), new RowMapper<Compartment>() {
+                    @Override
+                    public Compartment apply(ResultInterface result) {
+                        return new Compartment(result.currentRow()[0].getString());
+                    }
+                }));
+
+                return marking.render();
+            }
+        });
     }
 
     public String render() {

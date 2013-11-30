@@ -199,28 +199,32 @@ object Test {
             |insert into vault.doc2 ( title, x ) values ( 'moonbase.doc', 2 );
           """.stripMargin
         )
-
+        println("vault.doc")
         println(jooq.fetch(
           """
             |select * from vault.doc;
           """.stripMargin
         ))
+        println("vault.doc2")
         println(jooq.fetch(
           """
             |select * from vault.doc2;
           """.stripMargin
         ))
+        println("vault.doc join vault.doc2, title only")
         println(jooq.fetch(
           """
             |select vault.doc.title from vault.doc join vault.doc2
             |on vault.doc.title = vault.doc2.title;
           """.stripMargin
         ))
+        println("session_marking")
         println(jooq.fetch(
           """
             |select * from mac.session_marking;
           """.stripMargin
         ))
+        println("vault_shadow.doc")
         println(jooq.fetch(
           """
             |select * from vault_shadow.doc;

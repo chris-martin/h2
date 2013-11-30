@@ -19,6 +19,7 @@ import org.h2.value.ValueLong;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import static java.util.Arrays.asList;
 import static org.h2.message.DbException.throwInternalError;
@@ -256,11 +257,15 @@ public class RestrictedSchema extends SchemaBase {
     }
 
     private static String[] getColumnNames(Column[] columns) {
-        String[] names = new String[columns.length];
-        for (int i = 0; i < columns.length; i++) {
-            names[i] = columns[i].getName();
+        List<String> list = New.arrayList();
+        for (Column column : columns) {
+            String name = column.getName();
+            if (!name.equalsIgnoreCase("MARKING_ID")) {
+                list.add(name);
+            }
         }
-        return names;
+        list.add("MARKING");
+        return list.toArray(new String[list.size()]);
     }
 
     private Table createShadowTable(CreateTableData data) {
@@ -288,8 +293,28 @@ public class RestrictedSchema extends SchemaBase {
 
         Select select = new Select(session);
 
-        // todo select everything from shadowTable except MARKING_ID
-        select.setExpressions(New.<Expression>arrayList(asList(new Wildcard(null, null))));
+        ArrayList<Expression> expressions = New.arrayList();
+
+        for (Column column : shadowTable.getColumns()) {
+            String columnName = column.getName();
+            System.out.println(columnName);
+            if (!columnName.equalsIgnoreCase("MARKING_ID")) {
+                expressions.add(
+                    new Alias(
+                        new ExpressionColumn(database, shadowSchema.getName(), shadowTable.getName(), columnName),
+                        columnName,
+                        false
+                    )
+                );
+            }
+        }
+
+        Function markingFunction = Function.getFunction(database, "RENDER_MARKING");
+        markingFunction.setParameter(0,
+            new ExpressionColumn(database, shadowSchema.getName(), shadowTable.getName(), "MARKING_ID"));
+        expressions.add(new Alias(markingFunction, "MARKING", false));
+
+        select.setExpressions(expressions);
 
         TableFilter shadowFilter = new TableFilter(session, shadowTable, null, true, select);
         select.addTableFilter(shadowFilter, true);
@@ -301,7 +326,6 @@ public class RestrictedSchema extends SchemaBase {
             new ExpressionColumn(database, "MAC", sessionMarkingTable.getName(), "MARKING_ID")
         );
         shadowFilter.addJoin(sessionMarkingFilter, false, false, joinExpression);
-
         select.init();
         return select;
     }

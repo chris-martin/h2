@@ -118,7 +118,11 @@ public abstract class Table extends SchemaObjectBase {
     }
 
     public boolean isRestrictedView() {
-        return getTableType().equals(VIEW) && getSchema().isRestricted();
+        return false;
+    }
+
+    public RestrictedTableView asRestrictedView() {
+        throw new UnsupportedOperationException();
     }
 
     @Override

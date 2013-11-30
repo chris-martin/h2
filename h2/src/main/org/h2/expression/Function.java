@@ -6,23 +6,6 @@
  */
 package org.h2.expression;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.TimeZone;
-import java.util.regex.PatternSyntaxException;
 import org.h2.command.Command;
 import org.h2.command.Parser;
 import org.h2.constant.ErrorCode;
@@ -30,6 +13,7 @@ import org.h2.engine.Constants;
 import org.h2.engine.Database;
 import org.h2.engine.Mode;
 import org.h2.engine.Session;
+import org.h2.mac.Marking;
 import org.h2.message.DbException;
 import org.h2.mvstore.DataUtils;
 import org.h2.schema.Schema;
@@ -38,36 +22,21 @@ import org.h2.security.BlockCipher;
 import org.h2.security.CipherFactory;
 import org.h2.security.SHA256;
 import org.h2.store.fs.FileUtils;
-import org.h2.table.Column;
-import org.h2.table.ColumnResolver;
-import org.h2.table.LinkSchema;
-import org.h2.table.Table;
-import org.h2.table.TableFilter;
+import org.h2.table.*;
 import org.h2.tools.CompressTool;
 import org.h2.tools.Csv;
-import org.h2.util.AutoCloseInputStream;
-import org.h2.util.DateTimeUtils;
-import org.h2.util.JdbcUtils;
-import org.h2.util.MathUtils;
-import org.h2.util.New;
-import org.h2.util.StatementBuilder;
-import org.h2.util.StringUtils;
-import org.h2.util.Utils;
-import org.h2.value.DataType;
-import org.h2.value.Value;
-import org.h2.value.ValueArray;
-import org.h2.value.ValueBoolean;
-import org.h2.value.ValueBytes;
-import org.h2.value.ValueDate;
-import org.h2.value.ValueDouble;
-import org.h2.value.ValueInt;
-import org.h2.value.ValueLong;
-import org.h2.value.ValueNull;
-import org.h2.value.ValueResultSet;
-import org.h2.value.ValueString;
-import org.h2.value.ValueTime;
-import org.h2.value.ValueTimestamp;
-import org.h2.value.ValueUuid;
+import org.h2.util.*;
+import org.h2.value.*;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.sql.*;
+import java.sql.Date;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * This class implements most built-in functions of this database.
@@ -110,7 +79,7 @@ public class Function extends Expression implements FunctionCall {
 
     public static final int ROW_NUMBER = 300;
 
-    public static final int MAC = 400;
+    public static final int RENDER_MARKING = 400;
 
     private static final int VAR_ARGS = -1;
     private static final long PRECISION_UNKNOWN = -1;
@@ -368,7 +337,7 @@ public class Function extends Expression implements FunctionCall {
         // pseudo function
         addFunctionWithNull("ROW_NUMBER", ROW_NUMBER, 0, Value.LONG);
 
-        addFunction("MAC", MAC, 1, Value.BOOLEAN);
+        addFunction("RENDER_MARKING", RENDER_MARKING, 1, Value.STRING);
     }
 
     protected Function(Database database, FunctionInfo info) {
@@ -940,9 +909,11 @@ public class Function extends Expression implements FunctionCall {
             result = session.getTransactionId();
             break;
         }
-        case MAC: {
-            if (v0.getType() == Value.INT) {
-                result = ValueBoolean.get(v0.getInt() % 2 == 0);
+        case RENDER_MARKING: {
+            if (v0.getType() == Value.LONG) {
+                String rendered = Marking.render(session, v0.getLong());
+                System.out.println("$$$$$ " + rendered);
+                result = ValueString.get(rendered);
             } else {
                 result = ValueNull.INSTANCE;
             }

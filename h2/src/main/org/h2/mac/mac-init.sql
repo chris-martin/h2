@@ -92,3 +92,11 @@ create view mac.session_marking as
   left join mac.missing_credentials
   on mac.marking.marking_id = mac.missing_credentials.marking_id
   where mac.missing_credentials.credential_id is null;
+
+-- data
+
+insert into mac.sensitivity ( sensitivity_id, name )
+  values ( 0, '' );
+
+insert into mac.marking ( marking_id, sensitivity_id, compartment_id_list )
+  values ( 0, 0, '' );

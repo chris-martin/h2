@@ -41,6 +41,7 @@ import static org.h2.message.DbException.throwInternalError;
 public class Insert extends Prepared implements ResultTarget {
 
     private Table table;
+    private Table restrictedView;
     private Column[] columns;
     private final ArrayList<Expression[]> list = New.arrayList();
     private Query query;
@@ -62,7 +63,14 @@ public class Insert extends Prepared implements ResultTarget {
     }
 
     public void setTable(Table table) {
-        this.table = table;
+
+        if (table.isRestrictedView()) {
+            this.table = table.asRestrictedView().getShadowTable();
+            restrictedView = table;
+        } else {
+            this.table = table;
+            restrictedView = null;
+        }
     }
 
     public void setColumns(Column[] columns) {
@@ -77,6 +85,10 @@ public class Insert extends Prepared implements ResultTarget {
         this.marking = marking;
     }
 
+    private boolean isRestrictedView() {
+        return restrictedView != null;
+    }
+
     /**
      * Add a row to this merge statement.
      *
@@ -88,7 +100,7 @@ public class Insert extends Prepared implements ResultTarget {
 
     private void prepareMarking() {
 
-        if (table.isRestrictedView()) {
+        if (isRestrictedView()) {
             if (marking == null) {
                 marking = Marking.parse("");
             }
@@ -125,7 +137,9 @@ public class Insert extends Prepared implements ResultTarget {
 
     private int insertRows() {
 
-        session.getUser().checkRight(table, Right.INSERT);
+        session.getUser().checkRight(
+            restrictedView != null ? restrictedView : table,
+            Right.INSERT);
 
         setCurrentRowNumber(0);
         table.fire(session, Trigger.INSERT, true);

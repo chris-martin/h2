@@ -60,6 +60,10 @@ public class New {
         return new HashSet<T>();
     }
 
+    public static <T> HashSet<T> hashSet(Collection<? extends T> c) {
+        return new HashSet<T>(c);
+    }
+
     /**
      * Create a new ArrayList.
      *
