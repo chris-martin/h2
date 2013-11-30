@@ -6,7 +6,6 @@
  */
 package org.h2.command.dml;
 
-import java.util.ArrayList;
 import org.h2.api.Trigger;
 import org.h2.command.Command;
 import org.h2.command.CommandInterface;
@@ -28,8 +27,11 @@ import org.h2.table.Table;
 import org.h2.util.New;
 import org.h2.util.StatementBuilder;
 import org.h2.value.Value;
-import org.h2.value.ValueInt;
+import org.h2.value.ValueLong;
 
+import java.util.ArrayList;
+
+import static java.util.Objects.requireNonNull;
 import static org.h2.message.DbException.throwInternalError;
 
 /**
@@ -46,7 +48,6 @@ public class Insert extends Prepared implements ResultTarget {
     private int rowNumber;
     private boolean insertFromSelect;
     private Marking marking;
-    private Integer markingId;
 
     public Insert(Session session) {
         super(session);
@@ -85,8 +86,29 @@ public class Insert extends Prepared implements ResultTarget {
         list.add(expr);
     }
 
+    private void prepareMarking() {
+
+        if (table.isRestrictedView()) {
+            if (marking == null) {
+                marking = Marking.parse("");
+            }
+        } else {
+            if (marking != null) {
+                throw throwInternalError("Cannot set marking on unrestricted schema " +
+                    table.getSchema().getName());
+            }
+        }
+
+        if (marking != null) {
+            marking.persist(session.getDatabase());
+        }
+    }
+
     @Override
     public int update() {
+
+        prepareMarking();
+
         Index index = null;
         if (sortedInsertMode) {
             index = table.getScanIndex(session);
@@ -104,21 +126,6 @@ public class Insert extends Prepared implements ResultTarget {
     private int insertRows() {
 
         session.getUser().checkRight(table, Right.INSERT);
-
-        if (table.isRestrictedView()) {
-            if (marking == null) {
-                marking = Marking.parse("");
-            }
-        } else {
-            if (marking != null) {
-                throw throwInternalError("Cannot set marking on unrestricted schema " +
-                    table.getSchema().getName());
-            }
-        }
-
-        if (marking != null) {
-            markingId = marking.persist(session.getDatabase());
-        }
 
         setCurrentRowNumber(0);
         table.fire(session, Trigger.INSERT, true);
@@ -175,6 +182,9 @@ public class Insert extends Prepared implements ResultTarget {
 
     @Override
     public void addRow(Value[] values) {
+
+        prepareMarking();
+
         Row newRow = table.getTemplateRow();
         setCurrentRowNumber(++rowNumber);
         for (int j = 0, len = columns.length; j < len; j++) {
@@ -197,10 +207,11 @@ public class Insert extends Prepared implements ResultTarget {
     }
 
     private void addRow(Row newRow) {
-        if (markingId != null) {
-            newRow.getValueList()[
-                table.getColumn("MARKING_ID").getColumnId()
-            ] = ValueInt.get(markingId);
+        if (marking != null) {
+            Value[] values = requireNonNull(newRow.getValueList());
+            int columnId = table.getColumn("MARKING_ID").getColumnId();
+            requireNonNull(marking.id);
+            values[columnId] = ValueLong.get(marking.id);
         }
         table.addRow(session, newRow);
     }
@@ -219,6 +230,9 @@ public class Insert extends Prepared implements ResultTarget {
             buff.append(c.getSQL());
         }
         buff.append(")\n");
+        if (marking != null) {
+            buff.append("MARKED '").append(marking.render()).append("'\n");
+        }
         if (insertFromSelect) {
             buff.append("DIRECT ");
         }

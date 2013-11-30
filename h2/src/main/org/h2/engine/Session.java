@@ -707,7 +707,8 @@ public class Session extends SessionWithState {
                     if (locks.indexOf(log.getTable()) < 0
                             && !Table.TABLE_LINK.equals(tableType)
                             && !Table.EXTERNAL_TABLE_ENGINE.equals(tableType)
-                            && !table.isRestrictedView()) {
+                            && !table.isRestrictedView()
+                            && !table.getSchema().getName().toUpperCase().equals("MAC")) {
                         DbException.throwInternalError();
                     }
                 }

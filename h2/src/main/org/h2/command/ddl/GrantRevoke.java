@@ -9,14 +9,13 @@ package org.h2.command.ddl;
 import java.util.ArrayList;
 import org.h2.command.CommandInterface;
 import org.h2.constant.ErrorCode;
-import org.h2.engine.Database;
-import org.h2.engine.Right;
-import org.h2.engine.RightOwner;
-import org.h2.engine.Role;
-import org.h2.engine.Session;
+import org.h2.engine.*;
+import org.h2.mac.Mac;
 import org.h2.message.DbException;
 import org.h2.table.Table;
 import org.h2.util.New;
+
+import static org.h2.message.DbException.throwInternalError;
 
 /**
  * This class represents the statements
@@ -32,6 +31,7 @@ public class GrantRevoke extends DefineCommand {
     private int rightMask;
     private final ArrayList<Table> tables = New.arrayList();
     private RightOwner grantee;
+    private ArrayList<String> markings;
 
     public GrantRevoke(Session session) {
         super(session);
@@ -62,6 +62,13 @@ public class GrantRevoke extends DefineCommand {
         roleNames.add(roleName);
     }
 
+    public void addMarking(String marking) {
+        if (markings == null) {
+            markings = New.arrayList();
+        }
+        markings.add(marking);
+    }
+
     public void setGranteeName(String granteeName) {
         Database db = session.getDatabase();
         grantee = db.findUser(granteeName);
@@ -89,7 +96,17 @@ public class GrantRevoke extends DefineCommand {
                 } else if (operationType == CommandInterface.REVOKE) {
                     revokeRole(grantedRole);
                 } else {
-                    DbException.throwInternalError("type=" + operationType);
+                    throwInternalError("type=" + operationType);
+                }
+            }
+        } else if (markings != null) {
+            for (String marking : markings) {
+                if (operationType == CommandInterface.GRANT) {
+                    grantMarking(marking);
+                } else if (operationType == CommandInterface.REVOKE) {
+                    revokeMarking(marking);
+                } else {
+                    throwInternalError("type=" + operationType);
                 }
             }
         } else {
@@ -98,7 +115,7 @@ public class GrantRevoke extends DefineCommand {
             } else if (operationType == CommandInterface.REVOKE) {
                 revokeRight();
             } else {
-                DbException.throwInternalError("type=" + operationType);
+                throwInternalError("type=" + operationType);
             }
         }
         return 0;
@@ -117,6 +134,13 @@ public class GrantRevoke extends DefineCommand {
                 right.setRightMask(right.getRightMask() | rightMask);
             }
         }
+    }
+
+    private void grantMarking(String marking) {
+        if (!(grantee instanceof User)) {
+            throw throwInternalError("Markings can only be granted to users");
+        }
+        Mac.grant(session, marking, (User) grantee);
     }
 
     private void grantRole(Role grantedRole) {
@@ -155,6 +179,13 @@ public class GrantRevoke extends DefineCommand {
         }
     }
 
+    private void revokeMarking(String marking) {
+        if (!(grantee instanceof User)) {
+            throw throwInternalError("Markings can only be granted to users");
+        }
+        Mac.revoke(session, marking, (User) grantee);
+    }
+
     private void revokeRole(Role grantedRole) {
         Right right = grantee.getRightForRole(grantedRole);
         if (right == null) {
@@ -188,6 +219,10 @@ public class GrantRevoke extends DefineCommand {
      */
     public boolean isRoleMode() {
         return roleNames != null;
+    }
+
+    public boolean isMarkingMode() {
+        return markings != null;
     }
 
     /**

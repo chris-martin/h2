@@ -60,7 +60,48 @@ object Test {
         )
         jooq.execute(
           """
+            |grant marking '2/A' to chris;
+          """.stripMargin
+        )
+        println("sensitivity:")
+        println(jooq.fetch(
+          """
+            |select * from mac.sensitivity;
+          """.stripMargin
+        ))
+        println("compartment:")
+        println(jooq.fetch(
+          """
+            |select * from mac.compartment;
+          """.stripMargin
+        ))
+        println("credential:")
+        println(jooq.fetch(
+          """
+            |select * from mac.credential;
+          """.stripMargin
+        ))
+        println("user_credential:")
+        println(jooq.fetch(
+          """
+            |select * from mac.user_credential;
+          """.stripMargin
+        ))
+        jooq.execute(
+          """
             |create schema restricted vault;
+            |create schema lobby;
+          """.stripMargin
+        )
+        jooq.execute(
+          """
+            |create table lobby.chair ( id int not null auto_increment, name varchar(12) );
+            |alter table lobby.chair add primary key ( id );
+          """.stripMargin
+        )
+        jooq.execute(
+          """
+            |insert into lobby.chair ( name ) values ( 'alpha' ), ( 'beta' )
           """.stripMargin
         )
         jooq.execute(
@@ -135,7 +176,20 @@ object Test {
         jooq.execute(
           """
             |insert into vault.doc marked '' ( title, x ) values ( 'puppies.jpg', 1 );
+          """.stripMargin
+        )
+        jooq.execute(
+          """
             |insert into vault.doc marked '2/A' ( title, x ) values ( 'moonbase.doc', 2 );
+          """.stripMargin
+        )
+        jooq.execute(
+          """
+            |insert into vault.doc marked '3/B' ( title, x ) values ( 'sunbase.doc', 2 );
+          """.stripMargin
+        )
+        jooq.execute(
+          """
             |insert into vault.doc ( title, x ) values ( 'tech.txt', 3 );
           """.stripMargin
         )

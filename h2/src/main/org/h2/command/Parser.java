@@ -4023,6 +4023,9 @@ public class Parser {
         } else if (readIf("RESOURCE")) {
             // ignore this right
             return true;
+        } else if (readIf("MARKING")) {
+            command.addMarking(readString());
+            return false;
         } else {
             command.addRoleName(readUniqueIdentifier());
             return false;
@@ -4035,7 +4038,17 @@ public class Parser {
         boolean tableClauseExpected = addRoleOrRight(command);
         while (readIf(",")) {
             addRoleOrRight(command);
-            if (command.isRightMode() && command.isRoleMode()) {
+            int i = 0;
+            if (command.isRightMode()) {
+                i++;
+            }
+            if (command.isMarkingMode()) {
+                i++;
+            }
+            if (command.isRoleMode()) {
+                i++;
+            }
+            if (i > 1) {
                 throw DbException.get(ErrorCode.ROLES_AND_RIGHT_CANNOT_BE_MIXED);
             }
         }

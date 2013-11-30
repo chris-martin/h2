@@ -1,21 +1,27 @@
 package org.h2.mac;
 
 import org.h2.engine.Database;
+import org.h2.engine.Session;
+import org.h2.mac.SystemSessions.SystemTransaction;
+import org.h2.mac.SystemSessions.SystemTransactionAction;
 import org.h2.util.New;
-import org.h2.value.Value;
+import org.h2.value.ValueLong;
 import org.h2.value.ValueString;
 
 import java.util.*;
 
-import static org.h2.mac.Queries.lines;
-import static org.h2.mac.Queries.queryForInteger;
+import static java.util.Objects.requireNonNull;
+import static org.h2.mac.Queries.*;
+import static org.h2.mac.SystemSessions.executeSystemTransaction;
 import static org.h2.message.DbException.throwInternalError;
 
 public class Marking {
 
-    public String sensitivity;
+    public Long id;
 
-    public Set<String> compartments = New.hashSet();
+    public Sensitivity sensitivity;
+
+    public Set<Compartment> compartments = New.hashSet();
 
     public static Marking parse(String markingString) {
 
@@ -31,21 +37,22 @@ public class Marking {
         if (!scanner.hasNext()) {
             throw throwInternalError("Marking must begin with a sensitivity");
         }
-        marking.sensitivity = scanner.next().trim().toUpperCase();
-        if (!marking.sensitivity.matches("[A-Z0-9 ]+")) {
+        String sensitivityName = scanner.next().trim().toUpperCase();
+        if (!sensitivityName.matches("[A-Z0-9 ]+")) {
             throw throwInternalError("Illegal character in marking sensitivity");
         }
+        marking.sensitivity = new Sensitivity(sensitivityName);
 
         // compartments
         if (!scanner.hasNext()) {
             throw throwInternalError("Marking must have at least one compartment");
         }
         while (scanner.hasNext()) {
-            String compartment = scanner.next().trim();
-            if (!compartment.matches("[A-Z0-9 ]+")) {
+            String compartmentName = scanner.next().trim();
+            if (!compartmentName.matches("[A-Z0-9 ]+")) {
                 throw throwInternalError("Illegal character in marking compartment");
             }
-            marking.compartments.add(compartment);
+            marking.compartments.add(new Compartment(compartmentName));
         }
 
         return marking;
@@ -57,37 +64,121 @@ public class Marking {
             return "";
         }
 
-        StringBuilder sb = new StringBuilder(sensitivity);
-        List<String> sortedCompartments = New.arrayList(compartments);
-        Collections.sort(sortedCompartments);
-        for (String compartment : sortedCompartments) {
+        StringBuilder sb = new StringBuilder(sensitivity.name);
+        for (String compartment : sortedCompartmentNames()) {
             sb.append("/").append(compartment);
         }
         return sb.toString();
     }
 
-    public int persist(Database database) {
+    private List<String> sortedCompartmentNames() {
+        List<String> names = New.arrayList();
+        for (Compartment compartment : compartments) {
+            names.add(compartment.name);
+        }
+        Collections.sort(names);
+        return names;
+    }
+
+    public long persist(Database database) {
 
         if (sensitivity == null) {
-            return 0;
+            id = 0L;
+        } else {
+            executeSystemTransaction(database, new SystemTransactionAction<Long>() {
+                @Override
+                public Long execute(SystemTransaction transaction) {
+                    return persist(transaction);
+                }
+            });
         }
 
-        Integer sensitivityId = queryForInteger(
-            database.getSystemSession(),
-            lines(
-                "select mac.sensitivity.sensitivity_id",
-                "from mac.sensitivity",
-                "where upper(mac.sensitivity.name) = upper(?)"
-            ),
-            Arrays.<Value>asList(
-                ValueString.get(sensitivity)
-            )
-        );
+        return requireNonNull(id);
+    }
 
-        if (sensitivityId == null) {
-            // todo
+    public long persist(SystemTransaction transaction) {
+
+        if (id != null) {
+            return id;
         }
 
-        return 0; // todo
+        if (sensitivity == null) {
+            id = 0L;
+            return id;
+        }
+
+        Session session = transaction.getSystemSession();
+
+        sensitivity.persist(transaction);
+
+        for (Compartment compartment : compartments) {
+            compartment.persist(transaction);
+        }
+
+        String compartmentIdListString = buildCompartmentIdListString();
+
+        id = selectLong(session, lines(
+            "select mac.marking.marking_id",
+            "from mac.marking",
+            "where mac.marking.sensitivity_id = ?",
+            "and mac.marking.compartment_id_list = ?"
+        ), values(
+            ValueLong.get(sensitivity.id),
+            ValueString.get(compartmentIdListString)
+        ));
+
+        if (id == null) {
+
+            id = insertAndSelectLongIdentity(session, lines(
+                "insert into mac.marking ( sensitivity_id, compartment_id_list )",
+                "values ( ?, ? )"
+            ), values(
+                ValueLong.get(sensitivity.id),
+                ValueString.get(compartmentIdListString)
+            ));
+
+            requireNonNull(id);
+
+            for (Compartment compartment : compartments) {
+                insert(session, lines(
+                    "insert into mac.marking_compartment ( marking_id, compartment_id )",
+                    "values ( ?, ? )"
+                ), values(
+                    ValueLong.get(id),
+                    ValueLong.get(compartment.id)
+                ));
+            }
+        }
+
+        return requireNonNull(id);
+    }
+
+    private String buildCompartmentIdListString() {
+
+        ArrayList<Long> compartmentIds = New.arrayList();
+
+        for (Compartment compartment : compartments) {
+            compartmentIds.add(requireNonNull(compartment.id));
+        }
+
+        Collections.sort(compartmentIds);
+        StringBuilder sb = new StringBuilder();
+        Iterator<Long> it = compartmentIds.iterator();
+        while (it.hasNext()) {
+            sb.append(Long.toString(it.next()));
+            if (it.hasNext()) {
+                sb.append(",");
+            }
+        }
+        return sb.toString();
+    }
+
+    @Override
+    public String toString() {
+        return "Marking{" +
+            "id=" + id +
+            ", sensitivity=" + sensitivity +
+            ", compartments=" + compartments +
+            '}';
     }
 }

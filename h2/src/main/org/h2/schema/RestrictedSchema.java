@@ -15,7 +15,7 @@ import org.h2.message.Trace;
 import org.h2.table.*;
 import org.h2.util.New;
 import org.h2.value.Value;
-import org.h2.value.ValueInt;
+import org.h2.value.ValueLong;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -268,8 +268,8 @@ public class RestrictedSchema extends SchemaBase {
         data.id = 0;
         data = data.copy();
         data.schema = shadowSchema;
-        Column markingColumn = new Column("MARKING_ID", Value.INT);
-        markingColumn.setDefaultExpression(data.session, ValueExpression.get(ValueInt.get(0)));
+        Column markingColumn = new Column("MARKING_ID", Value.LONG);
+        markingColumn.setDefaultExpression(data.session, ValueExpression.get(ValueLong.get(0)));
         data.columns.add(markingColumn);
         new CreateTable(data).update();
 
@@ -303,7 +303,6 @@ public class RestrictedSchema extends SchemaBase {
         shadowFilter.addJoin(sessionMarkingFilter, false, false, joinExpression);
 
         select.init();
-        System.out.println(select.getPlanSQL());
         return select;
     }
 

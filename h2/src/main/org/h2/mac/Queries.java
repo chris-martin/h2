@@ -8,13 +8,49 @@ import org.h2.value.Value;
 
 import java.util.List;
 
+import static java.util.Arrays.asList;
 import static org.h2.message.DbException.throwInternalError;
 
 public final class Queries {
 
     private Queries() { }
 
-    public static Value queryForValue(Session session, String sql, List<Value> parameters) {
+    public static List<Value> values(Value ... values) {
+        return asList(values);
+    }
+
+    public static void insert(Session session, String sql, List<Value> parameters) {
+
+        Prepared prepared = new Parser(session).prepare(sql);
+        for (int i = 0; i < parameters.size(); i++) {
+            prepared.getParameters().get(i).setValue(parameters.get(i));
+        }
+        prepared.update();
+    }
+
+    public static Value insertAndSelectIdentity(Session session, String sql, List<Value> parameters) {
+
+        insert(session, sql, parameters);
+        return selectValue(session, "select scope_identity() from dual", values());
+    }
+
+    public static long insertAndSelectLongIdentity(Session session, String sql, List<Value> parameters) {
+
+        Value value = insertAndSelectIdentity(session, sql, parameters);
+
+        if (value == null) {
+            throw throwInternalError("Expected int from query");
+        }
+
+        switch (value.getType()) {
+            case Value.LONG:
+                return value.getLong();
+            default:
+                throw throwInternalError("Expected int from query");
+        }
+    }
+
+    public static Value selectValue(Session session, String sql, List<Value> parameters) {
 
         Prepared prepared = new Parser(session).prepare(sql);
         for (int i = 0; i < parameters.size(); i++) {
@@ -36,15 +72,19 @@ public final class Queries {
         }
     }
 
-    public static Integer queryForInteger(Session session, String sql, List<Value> parameters) {
+    public static Long selectLong(Session session, String sql, List<Value> parameters) {
 
-        Value value = queryForValue(session, sql, parameters);
+        Value value = selectValue(session, sql, parameters);
+
+        if (value == null) {
+            return null;
+        }
 
         switch (value.getType()) {
             case Value.NULL:
                 return null;
-            case Value.INT:
-                return value.getInt();
+            case Value.LONG:
+                return value.getLong();
             default:
                 throw throwInternalError("Expected int or null from query");
         }
@@ -58,5 +98,4 @@ public final class Queries {
         }
         return sb.toString();
     }
-
 }
