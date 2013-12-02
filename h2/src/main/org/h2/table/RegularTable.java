@@ -71,6 +71,32 @@ public class RegularTable extends TableBase {
      */
     private boolean waitForLock;
 
+    @Override
+    public boolean isShadow() {
+        return getName().endsWith("_SHADOW");
+    }
+
+    @Override
+    public RegularTable asShadow() {
+
+        if (!isShadow()) {
+            throw new UnsupportedOperationException();
+        }
+
+        return this;
+    }
+
+    public RestrictedTableView getRestrictedView(Session session) {
+
+        if (!isShadow()) {
+            throw new UnsupportedOperationException();
+        }
+
+        String shadowName = getName();
+        String viewName = shadowName.substring(0, shadowName.length() - "_SHADOOW".length());
+        return (RestrictedTableView) getSchema().getTableOrView(session, viewName);
+    }
+
     public RegularTable(CreateTableData data) {
         super(data);
         nextAnalyze = database.getSettings().analyzeAuto;

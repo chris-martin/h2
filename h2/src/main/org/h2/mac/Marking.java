@@ -11,6 +11,7 @@ import org.h2.value.ValueString;
 
 import java.util.*;
 
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static org.h2.mac.Queries.*;
 import static org.h2.mac.SystemSessions.executeSystemTransaction;
@@ -23,6 +24,15 @@ public class Marking {
     public Sensitivity sensitivity;
 
     public Set<Compartment> compartments = New.hashSet();
+
+    private static final String labelRegex = "[a-zA-Z0-9 \\-_]+";
+
+    public Marking() { }
+
+    public Marking(Sensitivity sensitivity, Compartment... compartments) {
+        this.sensitivity = sensitivity;
+        this.compartments = New.hashSet(asList(compartments));
+    }
 
     public static Marking parse(String markingString) {
 
@@ -39,7 +49,7 @@ public class Marking {
             throw throwInternalError("Marking must begin with a sensitivity");
         }
         String sensitivityName = scanner.next().trim().toUpperCase();
-        if (!sensitivityName.matches("[A-Z0-9 ]+")) {
+        if (!sensitivityName.matches(labelRegex)) {
             throw throwInternalError("Illegal character in marking sensitivity");
         }
         marking.sensitivity = new Sensitivity(sensitivityName);
@@ -50,7 +60,7 @@ public class Marking {
         }
         while (scanner.hasNext()) {
             String compartmentName = scanner.next().trim();
-            if (!compartmentName.matches("[A-Z0-9 ]+")) {
+            if (!compartmentName.matches(labelRegex)) {
                 throw throwInternalError("Illegal character in marking compartment");
             }
             marking.compartments.add(new Compartment(compartmentName));

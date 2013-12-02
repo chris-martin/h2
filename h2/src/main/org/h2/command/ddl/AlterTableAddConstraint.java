@@ -186,6 +186,9 @@ public class AlterTableAddConstraint extends SchemaCommand {
         }
         case CommandInterface.ALTER_TABLE_ADD_CONSTRAINT_REFERENTIAL: {
             Table refTable = refSchema.getTableOrView(session, refTableName);
+            if (refTable.isRestrictedView()) {
+                refTable = refTable.asRestrictedView().getShadowTable();
+            }
             session.getUser().checkRight(refTable, Right.ALL);
             if (!refTable.canReference()) {
                 throw DbException.getUnsupportedException("Reference " + refTable.getSQL());

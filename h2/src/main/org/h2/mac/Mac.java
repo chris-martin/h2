@@ -13,6 +13,7 @@ import org.h2.engine.User;
 import org.h2.expression.*;
 import org.h2.mac.SystemSessions.SystemTransaction;
 import org.h2.mac.SystemSessions.SystemTransactionAction;
+import org.h2.result.ResultInterface;
 import org.h2.schema.Schema;
 import org.h2.table.Column;
 import org.h2.table.IndexColumn;
@@ -27,6 +28,8 @@ import org.h2.value.ValueString;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 import static org.h2.mac.Queries.*;
 import static org.h2.mac.SystemSessions.executeSystemTransaction;
@@ -74,40 +77,47 @@ public final class Mac {
             @Override
             public Void execute(SystemTransaction transaction) {
 
-                Session session = transaction.getSystemSession();
+                grant(transaction, marking, grantee.getName());
 
-                if (marking.sensitivity == null) {
-                    throw throwInternalError("Granted credential must have a sensitivity");
-                }
-
-                Sensitivity sensitivity = marking.sensitivity;
-
-                if (marking.compartments.size() != 1) {
-                    throw throwInternalError("Granted credential must have exactly one compartment");
-                }
-
-                Compartment compartment = marking.compartments.iterator().next();
-
-                sensitivity.persist(transaction);
-                compartment.persist(transaction);
-
-                insert(session, lines(
-                    // todo don't try to re-insert duplicate rows
-                    // todo also insert lower sensitivities
-                    "insert into mac.user_credential ( user_name, credential_id )",
-                    "select ?, mac.credential.credential_id",
-                    "from mac.credential",
-                    "where mac.credential.sensitivity_id = ?",
-                    "and mac.credential.compartment_id = ?"
-                ), values(
-                    ValueString.get(grantee.getName()),
-                    ValueLong.get(sensitivity.id),
-                    ValueLong.get(compartment.id)
-                ));
+                cleanupAllUserCredentials(transaction);
 
                 return null;
             }
         });
+    }
+
+    private static void grant(SystemTransaction transaction, Marking marking, String grantee) {
+
+        Session session = transaction.getSystemSession();
+
+        if (marking.sensitivity == null) {
+            throw throwInternalError("Granted credential must have a sensitivity");
+        }
+
+        Sensitivity sensitivity = marking.sensitivity;
+
+        if (marking.compartments.size() != 1) {
+            throw throwInternalError("Granted credential must have exactly one compartment");
+        }
+
+        Compartment compartment = marking.compartments.iterator().next();
+
+        sensitivity.persist(transaction);
+        compartment.persist(transaction);
+
+        insert(session, lines(
+            "insert into mac.user_credential ( user_name, credential_id )",
+            "select",
+            "  ? user_name,",
+            "  mac.credential.credential_id credential_id",
+            "from mac.credential",
+            "where mac.credential.sensitivity_id = ?",
+            "and mac.credential.compartment_id = ?"
+        ), values(
+            ValueString.get(grantee),
+            ValueLong.get(sensitivity.id),
+            ValueLong.get(compartment.id)
+        ));
     }
 
     public static void revoke(Session session, String markingString, User grantee) {
@@ -166,7 +176,6 @@ public final class Mac {
 
         for (Column column : shadowTable.getColumns()) {
             String columnName = column.getName();
-            System.out.println(columnName);
             if (!columnName.equalsIgnoreCase("MARKING_ID")) {
                 expressions.add(
                     new Alias(
@@ -197,5 +206,115 @@ public final class Mac {
         shadowFilter.addJoin(sessionMarkingFilter, false, false, joinExpression);
         select.init();
         return select;
+    }
+
+    public static void cleanupAllUserCredentials(SystemTransaction transaction) {
+
+        Session session = transaction.getSystemSession();
+
+        // todo this could probably be done more efficiently in a single query
+
+        List<Sensitivity> sensitivities = selectList(session, lines(
+            "select sensitivity_id, name from mac.sensitivity where sensitivity_id <> 0"
+        ), values(), new RowMapper<Sensitivity>() {
+            @Override
+            public Sensitivity apply(ResultInterface result) {
+                Value[] values = result.currentRow();
+                return new Sensitivity(values[0].getLong(), values[1].getString());
+            }
+        });
+
+        List<String> users = selectList(session, lines(
+            "select distinct user_name from mac.user_credential"
+        ), values(), new RowMapper<String>() {
+            @Override
+            public String apply(ResultInterface result) {
+                Value values = result.currentRow()[0];
+                return values.getString();
+            }
+        });
+
+        for (String user : users) {
+
+            List<Long> compartmentIds = selectList(session, lines(
+                "select distinct mac.credential.compartment_id",
+                "from mac.credential",
+                "join mac.user_credential",
+                "on mac.credential.credential_id = mac.user_credential.credential_id",
+                "where mac.user_credential.user_name = ?"
+            ), values(
+                ValueString.get(user)
+            ), new RowMapper<Long>() {
+                @Override
+                public Long apply(ResultInterface result) {
+                    Value[] values = result.currentRow();
+                    return values[0].getLong();
+                }
+            });
+
+            for (Long compartmentId : compartmentIds) {
+
+                List<Sensitivity> grantedSensitivities = selectList(session, lines(
+                    "select",
+                    "  mac.sensitivity.sensitivity_id,",
+                    "  mac.sensitivity.name",
+                    "from mac.user_credential",
+                    "join mac.credential",
+                    "on mac.credential.credential_id = mac.user_credential.credential_id",
+                    "join mac.sensitivity",
+                    "on mac.sensitivity.sensitivity_id = mac.credential.sensitivity_id",
+                    "where mac.user_credential.user_name = ?",
+                    "and mac.credential.compartment_id = ?"
+                ), values(
+                    ValueString.get(user),
+                    ValueLong.get(compartmentId)
+                ), new RowMapper<Sensitivity>() {
+                    @Override
+                    public Sensitivity apply(ResultInterface result) {
+                        Value[] values = result.currentRow();
+                        return new Sensitivity(
+                            values[0].getLong(),
+                            values[1].getString()
+                        );
+                    }
+                });
+
+                for (final Sensitivity sensitivity : sensitivities) {
+
+                    boolean alreadyGranted = contains(grantedSensitivities, new Predicate<Sensitivity>() {
+                        @Override
+                        public boolean apply(Sensitivity x) {
+                            return x.id.equals(sensitivity.id);
+                        }
+                    });
+
+                    boolean grantedHigher = contains(grantedSensitivities, new Predicate<Sensitivity>() {
+                        @Override
+                        public boolean apply(Sensitivity x) {
+                            return x.name.compareTo(sensitivity.name) > 0;
+                        }
+                    });
+
+                    if (!alreadyGranted && grantedHigher) {
+                        grant(transaction, new Marking(sensitivity, new Compartment(compartmentId)), user);
+                    }
+                }
+            }
+        }
+    }
+
+    private static interface Predicate<T> {
+        boolean apply(T t);
+    }
+
+    private static <T> boolean contains(Collection<T> collection, Predicate<T> predicate) {
+
+        for (T t : collection) {
+            if (predicate.apply(t)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

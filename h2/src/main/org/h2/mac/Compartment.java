@@ -18,6 +18,10 @@ public class Compartment {
         this.name = name;
     }
 
+    public Compartment(Long id) {
+        this.id = id;
+    }
+
     public long persist(SystemTransaction transaction) {
 
         Session session = transaction.getSystemSession();

@@ -125,6 +125,14 @@ public abstract class Table extends SchemaObjectBase {
         throw new UnsupportedOperationException();
     }
 
+    public boolean isShadow() {
+        return false;
+    }
+
+    public RegularTable asShadow() {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public void rename(String newName) {
         super.rename(newName);

@@ -19,163 +19,15 @@ object Test {
         val connection = DriverManager.getConnection(s"jdbc:h2:$filename")
         connections += connection
         val jooq = createJooqContext(connection, SQLDialect.H2)
-
-        println(jooq.fetch(
-          """
-            |select * from dual;
-          """.stripMargin
-        ))
-
-        jooq.execute(
-          """
-            |create role basic;
-            |create user chris password 'abc';
-            |create user bob password 'abc';
-            |grant basic to chris;
-            |grant basic to bob;
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |grant marking '2/A' to chris;
-          """.stripMargin
-        )
-        println("sensitivity:")
-        println(jooq.fetch(
-          """
-            |select * from mac.sensitivity;
-          """.stripMargin
-        ))
-        println("compartment:")
-        println(jooq.fetch(
-          """
-            |select * from mac.compartment;
-          """.stripMargin
-        ))
-        println("credential:")
-        println(jooq.fetch(
-          """
-            |select * from mac.credential;
-          """.stripMargin
-        ))
-        println("user_credential:")
-        println(jooq.fetch(
-          """
-            |select * from mac.user_credential;
-          """.stripMargin
-        ))
-        jooq.execute(
-          """
-            |create schema restricted vault;
-            |create schema lobby;
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |create table lobby.chair ( id int not null auto_increment, name varchar(12) );
-            |alter table lobby.chair add primary key ( id );
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |insert into lobby.chair ( name ) values ( 'alpha' ), ( 'beta' )
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |create table vault.doc ( title varchar(12) not null, x int );
-            |alter table vault.doc add primary key ( title );
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |create table vault.doc2 ( title varchar(12) not null, x int );
-            |alter table vault.doc2 add primary key ( title );
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |grant select, insert on vault.doc to basic;
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |grant select, insert on vault.doc2 to basic;
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |grant select on mac.session_marking to basic;
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |grant select on vault_shadow.doc to basic;
-          """.stripMargin
-        )
-        println(jooq.fetch(
-          """
-            |show schemas;
-          """.stripMargin
-        ))
-        println(jooq.fetch(
-          """
-            |show tables from vault_shadow;
-          """.stripMargin
-        ))
-        println(jooq.fetch(
-          """
-            |show columns from vault_shadow.doc;
-          """.stripMargin
-        ))
-        println(jooq.fetch(
-          """
-            |show tables from vault;
-          """.stripMargin
-        ))
-        println(jooq.fetch(
-          """
-            |show columns from vault.doc;
-          """.stripMargin
-        ))
-        println(jooq.fetch(
-          """
-            |select * from mac.marking_credential;
-          """.stripMargin
-        ))
+        jooq execute resource("create.sql")
       }
       {
 
-        val connection = DriverManager.getConnection(s"jdbc:h2:$filename", "chris", "abc")
+        val connection = DriverManager.getConnection(s"jdbc:h2:$filename", "alice", "")
         connections += connection
         val jooq = createJooqContext(connection, SQLDialect.H2)
 
-        jooq.execute(
-          """
-            |insert into vault.doc marked '' ( title, x ) values ( 'puppies.jpg', 1 );
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |insert into vault.doc marked '2/A' ( title, x ) values ( 'moonbase.doc', 2 );
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |insert into vault.doc marked '3/B' ( title, x ) values ( 'sunbase.doc', 2 );
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |insert into vault.doc ( title, x ) values ( 'tech.txt', 3 );
-          """.stripMargin
-        )
-        jooq.execute(
-          """
-            |insert into vault.doc2 ( title, x ) values ( 'puppies.jpg', 2 );
-            |insert into vault.doc2 ( title, x ) values ( 'moonbase.doc', 2 );
-          """.stripMargin
-        )
+        jooq execute resource("insert.sql")
         chrisSelects(jooq)
       }
     } finally {
@@ -185,7 +37,7 @@ object Test {
     Thread.sleep(1.second.toMillis)
 
     {
-      val connection = DriverManager.getConnection(s"jdbc:h2:$filename", "chris", "abc")
+      val connection = DriverManager.getConnection(s"jdbc:h2:$filename", "alice", "")
       try {
         val jooq = createJooqContext(connection, SQLDialect.H2)
         chrisSelects(jooq)
@@ -197,36 +49,15 @@ object Test {
 
   def chrisSelects(jooq: org.jooq.DSLContext) {
 
-    println("vault.doc")
-    println(jooq.fetch(
-      """
-        |select * from vault.doc;
-      """.stripMargin
-    ))
-    println("vault.doc2")
-    println(jooq.fetch(
-      """
-        |select * from vault.doc2;
-      """.stripMargin
-    ))
-    println("vault.doc join vault.doc2, title only")
-    println(jooq.fetch(
-      """
-        |select vault.doc.title from vault.doc join vault.doc2
-        |on vault.doc.title = vault.doc2.title;
-      """.stripMargin
-    ))
-    println("session_marking")
-    println(jooq.fetch(
-      """
-        |select * from mac.session_marking;
-      """.stripMargin
-    ))
-    println("vault_shadow.doc")
-    println(jooq.fetch(
-      """
-        |select * from vault_shadow.doc;
-      """.stripMargin
-    ))
+    println(jooq fetch resource("select.sql"))
+    println(jooq fetch "select * from mac.sensitivity")
+    println(jooq fetch "select * from mac.credential")
+    println(jooq fetch "select *, RENDER_MARKING(marking_id) from mac.marking")
+    println(jooq fetch "select *, RENDER_MARKING(marking_id) from mac.session_marking")
+    println(jooq fetch "select * from mac.user_credential")
   }
+
+  def resource(name: String): String =
+    io.Source.fromURL(getClass.getResource(name))
+      .getLines().mkString(System.lineSeparator)
 }

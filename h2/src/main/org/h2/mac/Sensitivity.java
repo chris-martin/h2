@@ -6,6 +6,7 @@ import org.h2.value.ValueLong;
 import org.h2.value.ValueString;
 
 import static java.util.Objects.requireNonNull;
+import static org.h2.mac.Mac.cleanupAllUserCredentials;
 import static org.h2.mac.Queries.*;
 
 public class Sensitivity {
@@ -15,6 +16,11 @@ public class Sensitivity {
     public String name;
 
     public Sensitivity(String name) {
+        this.name = name;
+    }
+
+    public Sensitivity(Long id, String name) {
+        this.id = id;
         this.name = name;
     }
 
@@ -55,6 +61,8 @@ public class Sensitivity {
         ), values(
             ValueLong.get(id)
         ));
+
+        cleanupAllUserCredentials(transaction);
 
         return id;
     }

@@ -912,7 +912,6 @@ public class Function extends Expression implements FunctionCall {
         case RENDER_MARKING: {
             if (v0.getType() == Value.LONG) {
                 String rendered = Marking.render(session, v0.getLong());
-                System.out.println("$$$$$ " + rendered);
                 result = ValueString.get(rendered);
             } else {
                 result = ValueNull.INSTANCE;

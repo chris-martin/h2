@@ -57,7 +57,7 @@ public final class Queries {
         for (int i = 0; i < parameters.size(); i++) {
             prepared.getParameters().get(i).setValue(parameters.get(i));
         }
-        ResultInterface result = prepared.query(2);
+        ResultInterface result = prepared.query(2); // select at most 2 rows
 
         try {
             if (!result.next()) {
@@ -121,7 +121,7 @@ public final class Queries {
         for (int i = 0; i < parameters.size(); i++) {
             prepared.getParameters().get(i).setValue(parameters.get(i));
         }
-        ResultInterface result = prepared.query(2);
+        ResultInterface result = prepared.query(Integer.MAX_VALUE);
 
         try {
             List<T> list = New.arrayList();
