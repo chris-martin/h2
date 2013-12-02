@@ -100,7 +100,7 @@ public final class Mac {
             throw throwInternalError("Granted credential must have exactly one compartment");
         }
 
-        Compartment compartment = marking.compartments.iterator().next();
+        Compartment compartment = marking.compartments.values().iterator().next();
 
         sensitivity.persist(transaction);
         compartment.persist(transaction);

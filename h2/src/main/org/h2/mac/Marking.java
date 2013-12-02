@@ -23,15 +23,25 @@ public class Marking {
 
     public Sensitivity sensitivity;
 
-    public Set<Compartment> compartments = New.hashSet();
+    public Map<String, Compartment> compartments = New.hashMap();
 
     private static final String labelRegex = "[a-zA-Z0-9 \\-_]+";
 
     public Marking() { }
 
     public Marking(Sensitivity sensitivity, Compartment... compartments) {
+        setSensitivity(sensitivity);
+        setCompartments(asList(compartments));
+    }
+
+    public void setSensitivity(Sensitivity sensitivity) {
         this.sensitivity = sensitivity;
-        this.compartments = New.hashSet(asList(compartments));
+    }
+
+    public void setCompartments(Collection<Compartment> compartments) {
+        for (Compartment compartment : compartments) {
+            this.compartments.put(compartment.name, compartment);
+        }
     }
 
     public static Marking parse(String markingString) {
@@ -63,7 +73,7 @@ public class Marking {
             if (!compartmentName.matches(labelRegex)) {
                 throw throwInternalError("Illegal character in marking compartment");
             }
-            marking.compartments.add(new Compartment(compartmentName));
+            marking.compartments.put(compartmentName, new Compartment(compartmentName));
         }
 
         return marking;
@@ -81,7 +91,7 @@ public class Marking {
 
                 Marking marking = new Marking();
 
-                marking.sensitivity = new Sensitivity(selectString(session, lines(
+                marking.setSensitivity(new Sensitivity(selectString(session, lines(
                     "select mac.sensitivity.name",
                     "from mac.sensitivity",
                     "join mac.marking",
@@ -89,9 +99,9 @@ public class Marking {
                     "where mac.marking.marking_id = ?"
                 ), values(
                     ValueLong.get(markingId)
-                )));
+                ))));
 
-                marking.compartments = New.hashSet(selectList(session, lines(
+                marking.setCompartments(New.hashSet(selectList(session, lines(
                     "select mac.compartment.name",
                     "from mac.compartment",
                     "join mac.marking_compartment",
@@ -104,7 +114,7 @@ public class Marking {
                     public Compartment apply(ResultInterface result) {
                         return new Compartment(result.currentRow()[0].getString());
                     }
-                }));
+                })));
 
                 return marking.render();
             }
@@ -125,10 +135,7 @@ public class Marking {
     }
 
     private List<String> sortedCompartmentNames() {
-        List<String> names = New.arrayList();
-        for (Compartment compartment : compartments) {
-            names.add(compartment.name);
-        }
+        List<String> names = New.arrayList(compartments.keySet());
         Collections.sort(names);
         return names;
     }
@@ -164,7 +171,7 @@ public class Marking {
 
         sensitivity.persist(transaction);
 
-        for (Compartment compartment : compartments) {
+        for (Compartment compartment : compartments.values()) {
             compartment.persist(transaction);
         }
 
@@ -192,7 +199,7 @@ public class Marking {
 
             requireNonNull(id);
 
-            for (Compartment compartment : compartments) {
+            for (Compartment compartment : compartments.values()) {
                 insert(session, lines(
                     "insert into mac.marking_compartment ( marking_id, compartment_id )",
                     "values ( ?, ? )"
@@ -210,7 +217,7 @@ public class Marking {
 
         ArrayList<Long> compartmentIds = New.arrayList();
 
-        for (Compartment compartment : compartments) {
+        for (Compartment compartment : compartments.values()) {
             compartmentIds.add(requireNonNull(compartment.id));
         }
 
