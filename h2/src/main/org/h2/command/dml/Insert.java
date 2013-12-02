@@ -48,6 +48,7 @@ public class Insert extends Prepared implements ResultTarget {
     private boolean sortedInsertMode;
     private int rowNumber;
     private boolean insertFromSelect;
+    private Expression markingExpression;
     private Marking marking;
 
     public Insert(Session session) {
@@ -81,8 +82,8 @@ public class Insert extends Prepared implements ResultTarget {
         this.query = query;
     }
 
-    public void setMarking(Marking marking) {
-        this.marking = marking;
+    public void setMarking(Expression marking) {
+        this.markingExpression = marking;
     }
 
     private boolean isRestrictedView() {
@@ -101,11 +102,15 @@ public class Insert extends Prepared implements ResultTarget {
     private void prepareMarking() {
 
         if (isRestrictedView()) {
-            if (marking == null) {
+            if (markingExpression == null) {
                 marking = Marking.parse("");
+            } else {
+                marking = Marking.parse(
+                    markingExpression.getValue(session).getString()
+                );
             }
         } else {
-            if (marking != null) {
+            if (markingExpression != null) {
                 throw throwInternalError("Cannot set marking on unrestricted schema " +
                     table.getSchema().getName());
             }

@@ -991,7 +991,7 @@ public class Parser {
         command.setTable(table);
 
         if (readIf("MARKED")) {
-            command.setMarking(Marking.parse(readString()));
+            command.setMarking(readExpression());
         }
 
         Column[] columns = null;
