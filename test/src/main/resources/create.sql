@@ -2,8 +2,6 @@ CREATE ROLE basic;
 
 CREATE USER alice PASSWORD '';
 GRANT basic TO alice;
-GRANT MARKING '2/-' TO alice;
-GRANT MARKING '2/A' TO alice;
 
 CREATE USER bob PASSWORD '';
 GRANT basic TO bob;
@@ -44,9 +42,3 @@ GRANT INSERT, SELECT ON person TO basic;
 GRANT INSERT, SELECT on vault.document to basic;
 
 GRANT INSERT, SELECT on vault.page to basic;
-
-GRANT SELECT on mac.user_credential to basic; -- todo remove
-GRANT SELECT on mac.credential to basic; -- todo remove
-GRANT SELECT on mac.sensitivity to basic; -- todo remove
-GRANT SELECT on mac.marking to basic; -- todo remove
-GRANT SELECT on mac.session_marking to basic; -- todo remove

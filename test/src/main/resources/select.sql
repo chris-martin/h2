@@ -12,4 +12,5 @@ from vault.document
 left join vault.page
 on document.doc_id = page.doc_id
 left join public.person author
-on document.author_id = author.person_id;
+on document.author_id = author.person_id
+limit 20;
