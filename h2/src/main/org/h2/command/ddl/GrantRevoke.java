@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import org.h2.command.CommandInterface;
 import org.h2.constant.ErrorCode;
 import org.h2.engine.*;
+import org.h2.expression.Expression;
 import org.h2.mac.Mac;
 import org.h2.message.DbException;
 import org.h2.table.Table;
@@ -31,7 +32,7 @@ public class GrantRevoke extends DefineCommand {
     private int rightMask;
     private final ArrayList<Table> tables = New.arrayList();
     private RightOwner grantee;
-    private ArrayList<String> markings;
+    private ArrayList<Expression> markingExpressions;
 
     public GrantRevoke(Session session) {
         super(session);
@@ -62,11 +63,11 @@ public class GrantRevoke extends DefineCommand {
         roleNames.add(roleName);
     }
 
-    public void addMarking(String marking) {
-        if (markings == null) {
-            markings = New.arrayList();
+    public void addMarking(Expression marking) {
+        if (markingExpressions == null) {
+            markingExpressions = New.arrayList();
         }
-        markings.add(marking);
+        markingExpressions.add(marking);
     }
 
     public void setGranteeName(String granteeName) {
@@ -99,8 +100,9 @@ public class GrantRevoke extends DefineCommand {
                     throwInternalError("type=" + operationType);
                 }
             }
-        } else if (markings != null) {
-            for (String marking : markings) {
+        } else if (markingExpressions != null) {
+            for (Expression markingExpression : markingExpressions) {
+                String marking = markingExpression.getValue(session).getString();
                 if (operationType == CommandInterface.GRANT) {
                     grantMarking(marking);
                 } else if (operationType == CommandInterface.REVOKE) {
@@ -222,7 +224,7 @@ public class GrantRevoke extends DefineCommand {
     }
 
     public boolean isMarkingMode() {
-        return markings != null;
+        return markingExpressions != null;
     }
 
     /**

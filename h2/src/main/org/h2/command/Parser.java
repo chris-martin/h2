@@ -4024,7 +4024,7 @@ public class Parser {
             // ignore this right
             return true;
         } else if (readIf("MARKING")) {
-            command.addMarking(readString());
+            command.addMarking(readExpression());
             return false;
         } else {
             command.addRoleName(readUniqueIdentifier());
