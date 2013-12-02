@@ -1,16 +1,32 @@
 package org.h2.mac;
 
+import org.h2.command.CommandInterface;
 import org.h2.command.Parser;
+import org.h2.command.ddl.AlterTableAddConstraint;
+import org.h2.command.ddl.CreateIndex;
+import org.h2.command.ddl.CreateTable;
+import org.h2.command.ddl.CreateTableData;
+import org.h2.command.dml.Select;
+import org.h2.engine.Database;
 import org.h2.engine.Session;
 import org.h2.engine.User;
+import org.h2.expression.*;
 import org.h2.mac.SystemSessions.SystemTransaction;
 import org.h2.mac.SystemSessions.SystemTransactionAction;
+import org.h2.schema.Schema;
+import org.h2.table.Column;
+import org.h2.table.IndexColumn;
+import org.h2.table.Table;
+import org.h2.table.TableFilter;
+import org.h2.util.New;
 import org.h2.util.Utils;
+import org.h2.value.Value;
 import org.h2.value.ValueLong;
 import org.h2.value.ValueString;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 
 import static org.h2.mac.Queries.*;
 import static org.h2.mac.SystemSessions.executeSystemTransaction;
@@ -20,10 +36,23 @@ public final class Mac {
 
     private Mac() { }
 
-    public static final String MAC_SCHEMA_NAME = "MAC";
+    public static void initializeMacSchema(Database database) {
 
-    public static void initializeMacSchema(Session session) {
-        new Parser(session).prepareCommand(resource("/org/h2/mac/mac-init.sql")).update();
+        if (database.findSchema("MAC") == null) {
+
+            executeSystemTransaction(database, new SystemTransactionAction<Void>() {
+
+                @Override
+                public Void execute(SystemTransaction transaction) {
+
+                    new Parser(transaction.getSystemSession())
+                        .prepareCommand(resource("/org/h2/mac/mac-init.sql"))
+                        .update();
+
+                    return null;
+                }
+            });
+        }
     }
 
     private static String resource(String name) {
@@ -88,4 +117,85 @@ public final class Mac {
         // todo revoke access
     }
 
+    public static Table createShadowTable(Database database, Schema shadowSchema, CreateTableData data) {
+
+        data.id = 0;
+        data = data.copy();
+        data.schema = shadowSchema;
+
+        boolean markingIdColumnAlreadyExists = false;
+        for (Column column : data.columns) {
+            if (column.getName().equalsIgnoreCase("MARKING_ID")) {
+                markingIdColumnAlreadyExists = true;
+            }
+        }
+
+        if (!markingIdColumnAlreadyExists) {
+            Column markingColumn = new Column("MARKING_ID", Value.LONG);
+            markingColumn.setDefaultExpression(data.session, ValueExpression.get(ValueLong.get(0)));
+            data.columns.add(markingColumn);
+        }
+
+        new CreateTable(data).update();
+
+        CreateIndex createIndex = new CreateIndex(data.session, shadowSchema);
+        createIndex.setIndexName("INDEX_" + data.tableName + "_MARKING_ID");
+        createIndex.setTableName(data.tableName);
+        createIndex.setIndexColumns(new IndexColumn[]{IndexColumn.named("MARKING_ID")});
+        createIndex.update();
+
+        AlterTableAddConstraint fk = new AlterTableAddConstraint(data.session, shadowSchema, false);
+        fk.setType(CommandInterface.ALTER_TABLE_ADD_CONSTRAINT_REFERENTIAL);
+        fk.setTableName(data.tableName);
+        fk.setIndexColumns(new IndexColumn[] { IndexColumn.named("MARKING_ID") });
+        fk.setRefTableName(database.getSchema("MAC"), "MARKING");
+        fk.setRefIndexColumns(new IndexColumn[] { IndexColumn.named("MARKING_ID") });
+        fk.update();
+
+        return shadowSchema.findTableOrView(data.session, data.tableName);
+    }
+
+    public static Select createViewQuery(Session session, Table shadowTable) {
+
+        Schema shadowSchema = shadowTable.getSchema();
+        Database database = shadowTable.getDatabase();
+
+        Select select = new Select(session);
+
+        ArrayList<Expression> expressions = New.arrayList();
+
+        for (Column column : shadowTable.getColumns()) {
+            String columnName = column.getName();
+            System.out.println(columnName);
+            if (!columnName.equalsIgnoreCase("MARKING_ID")) {
+                expressions.add(
+                    new Alias(
+                        new ExpressionColumn(database, shadowSchema.getName(), shadowTable.getName(), columnName),
+                        columnName,
+                        false
+                    )
+                );
+            }
+        }
+
+        Function markingFunction = Function.getFunction(database, "RENDER_MARKING");
+        markingFunction.setParameter(0,
+            new ExpressionColumn(database, shadowSchema.getName(), shadowTable.getName(), "MARKING_ID"));
+        expressions.add(new Alias(markingFunction, "MARKING", false));
+
+        select.setExpressions(expressions);
+
+        TableFilter shadowFilter = new TableFilter(session, shadowTable, null, true, select);
+        select.addTableFilter(shadowFilter, true);
+
+        Table sessionMarkingTable = database.getSchema("MAC").getTableOrView(session, "SESSION_MARKING");
+        TableFilter sessionMarkingFilter = new TableFilter(session, sessionMarkingTable, null, true, select);
+        Expression joinExpression = new Comparison(session, Comparison.EQUAL,
+            new ExpressionColumn(database, shadowSchema.getName(), shadowTable.getName(), "MARKING_ID"),
+            new ExpressionColumn(database, "MAC", sessionMarkingTable.getName(), "MARKING_ID")
+        );
+        shadowFilter.addJoin(sessionMarkingFilter, false, false, joinExpression);
+        select.init();
+        return select;
+    }
 }

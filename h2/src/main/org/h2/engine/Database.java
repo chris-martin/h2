@@ -108,7 +108,6 @@ public class Database implements DataHandler {
 
     private Schema mainSchema;
     private Schema infoSchema;
-    private Schema macSchema;
     private int nextSessionId;
     private int nextTempTableId;
     private User systemUser;
@@ -622,12 +621,10 @@ public class Database implements DataHandler {
             trace = traceSystem.getTrace(Trace.DATABASE);
         }
         systemUser = new User(this, 0, SYSTEM_USER_NAME, true);
-        mainSchema = new RegularSchema(this, 0, Constants.SCHEMA_MAIN, systemUser, true, false);
-        infoSchema = new RegularSchema(this, -1, "INFORMATION_SCHEMA", systemUser, true, false);
-        macSchema = new RegularSchema(this, -2, Mac.MAC_SCHEMA_NAME, systemUser, true, false);
+        mainSchema = new RegularSchema(this, 0, Constants.SCHEMA_MAIN, systemUser, true, null);
+        infoSchema = new RegularSchema(this, -1, "INFORMATION_SCHEMA", systemUser, true, null);
         schemas.put(mainSchema.getName(), mainSchema);
         schemas.put(infoSchema.getName(), infoSchema);
-        schemas.put(macSchema.getName(), macSchema);
         publicRole = new Role(this, 0, Constants.PUBLIC_ROLE_NAME, true);
         roles.put(Constants.PUBLIC_ROLE_NAME, publicRole);
         systemUser.setAdmin(true);
@@ -667,7 +664,21 @@ public class Database implements DataHandler {
             records.add(rec);
         }
         Collections.sort(records);
+
+        boolean printMetaRecords = false;
+
+        if (printMetaRecords) {
+            for (MetaRecord rec : records) {
+                System.out.println("------------------------------------");
+                System.out.println(rec.getSQL());
+            }
+        }
+
         for (MetaRecord rec : records) {
+            if (printMetaRecords) {
+                System.out.println("====================================");
+                System.out.println(rec.getSQL());
+            }
             rec.execute(this, systemSession, eventListener);
         }
         if (mvStore != null) {
@@ -675,9 +686,8 @@ public class Database implements DataHandler {
         }
         recompileInvalidViews(systemSession);
 
-        Mac.initializeMacSchema(systemSession);
-
         starting = false;
+
         if (!readOnly) {
             // set CREATE_BUILD in a new database
             String name = SetTypes.getTypeName(SetTypes.CREATE_BUILD);
@@ -705,6 +715,8 @@ public class Database implements DataHandler {
         if (checkpointAllowed > 0) {
             afterWriting();
         }
+
+        Mac.initializeMacSchema(this);
     }
 
     private void startServer(String key) {
@@ -930,7 +942,7 @@ public class Database implements DataHandler {
         }
         String name = obj.getName();
         if (SysProperties.CHECK && map.get(name) != null) {
-            DbException.throwInternalError("object already exists");
+            DbException.throwInternalError("object already exists: " + name);
         }
         lockMeta(session);
         addMeta(session, obj);
@@ -1003,6 +1015,9 @@ public class Database implements DataHandler {
      * @return the user or null
      */
     public User findUser(String name) {
+        if (name.equalsIgnoreCase(SYSTEM_USER_NAME)) {
+            return systemUser;
+        }
         return users.get(name);
     }
 

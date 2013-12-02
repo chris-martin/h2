@@ -29,7 +29,6 @@ public class RestrictedTableView extends TableView {
                 columnList.add(column);
             }
         }
-        //columnList.add(new Column("MARKING", Value.STRING));
         setColumns(columnList.toArray(new Column[columnList.size()]));
     }
 

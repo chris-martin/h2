@@ -1,27 +1,24 @@
 package org.h2.schema;
 
-import org.h2.command.CommandInterface;
-import org.h2.command.ddl.AlterTableAddConstraint;
-import org.h2.command.ddl.CreateTable;
 import org.h2.command.ddl.CreateTableData;
 import org.h2.command.ddl.CreateView;
-import org.h2.command.dml.Select;
 import org.h2.constant.SysProperties;
 import org.h2.constraint.Constraint;
 import org.h2.engine.*;
-import org.h2.expression.*;
 import org.h2.index.Index;
 import org.h2.message.Trace;
-import org.h2.table.*;
+import org.h2.table.Column;
+import org.h2.table.Table;
+import org.h2.table.TableLink;
+import org.h2.table.TableView;
 import org.h2.util.New;
-import org.h2.value.Value;
-import org.h2.value.ValueLong;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static java.util.Arrays.asList;
+import static org.h2.mac.Mac.createShadowTable;
+import static org.h2.mac.Mac.createViewQuery;
 import static org.h2.message.DbException.throwInternalError;
 
 /**
@@ -31,7 +28,7 @@ import static org.h2.message.DbException.throwInternalError;
  */
 public class RestrictedSchema extends SchemaBase {
 
-    private final RegularSchema shadowSchema;
+    public final RegularSchema shadowSchema;
 
     private final HashMap<String, TableView> views;
 
@@ -58,14 +55,14 @@ public class RestrictedSchema extends SchemaBase {
     }
 
     @Override
-    public String getCreateSQL() {
-        return "CREATE SCHEMA RESTRICTED IF NOT EXISTS " +
-            getSQL() + " AUTHORIZATION " + getOwner().getSQL();
+    public String getDropSQL() {
+        return null;
     }
 
     @Override
-    public String getDropSQL() {
-        return null;
+    public String getCreateSQL() {
+        return "CREATE SCHEMA IF NOT EXISTS " +
+            getSQL() + " AUTHORIZATION " + shadowSchema.getOwner().getSQL();
     }
 
     @Override
@@ -101,10 +98,10 @@ public class RestrictedSchema extends SchemaBase {
 
     @Override
     public void add(SchemaObject obj) {
-        if (obj.getType() != DbObject.TABLE_OR_VIEW) {
+        /*if (obj.getType() != DbObject.TABLE_OR_VIEW) {
             shadowSchema.add(obj);
             return;
-        }
+        }*/
         String name = obj.getName();
         if (SysProperties.CHECK && views.get(name) != null) {
             throw throwInternalError("object already exists: " + name);
@@ -245,7 +242,7 @@ public class RestrictedSchema extends SchemaBase {
     @Override
     public Table createTable(CreateTableData data) {
 
-        Table shadowTable = createShadowTable(data);
+        Table shadowTable = createShadowTable(database, shadowSchema, data);
 
         CreateView createView = new CreateView(data.session, this);
         createView.setSelect(createViewQuery(data.session, shadowTable));
@@ -266,68 +263,6 @@ public class RestrictedSchema extends SchemaBase {
         }
         list.add("MARKING");
         return list.toArray(new String[list.size()]);
-    }
-
-    private Table createShadowTable(CreateTableData data) {
-
-        data.id = 0;
-        data = data.copy();
-        data.schema = shadowSchema;
-        Column markingColumn = new Column("MARKING_ID", Value.LONG);
-        markingColumn.setDefaultExpression(data.session, ValueExpression.get(ValueLong.get(0)));
-        data.columns.add(markingColumn);
-        new CreateTable(data).update();
-
-        AlterTableAddConstraint fk = new AlterTableAddConstraint(data.session, shadowSchema, false);
-        fk.setType(CommandInterface.ALTER_TABLE_ADD_CONSTRAINT_REFERENTIAL);
-        fk.setTableName(data.tableName);
-        fk.setIndexColumns(new IndexColumn[] { IndexColumn.named("MARKING_ID") });
-        fk.setRefTableName(database.getSchema("MAC"), "MARKING");
-        fk.setRefIndexColumns(new IndexColumn[] { IndexColumn.named("MARKING_ID") });
-        fk.update();
-
-        return shadowSchema.findTableOrView(data.session, data.tableName);
-    }
-
-    private Select createViewQuery(Session session, Table shadowTable) {
-
-        Select select = new Select(session);
-
-        ArrayList<Expression> expressions = New.arrayList();
-
-        for (Column column : shadowTable.getColumns()) {
-            String columnName = column.getName();
-            System.out.println(columnName);
-            if (!columnName.equalsIgnoreCase("MARKING_ID")) {
-                expressions.add(
-                    new Alias(
-                        new ExpressionColumn(database, shadowSchema.getName(), shadowTable.getName(), columnName),
-                        columnName,
-                        false
-                    )
-                );
-            }
-        }
-
-        Function markingFunction = Function.getFunction(database, "RENDER_MARKING");
-        markingFunction.setParameter(0,
-            new ExpressionColumn(database, shadowSchema.getName(), shadowTable.getName(), "MARKING_ID"));
-        expressions.add(new Alias(markingFunction, "MARKING", false));
-
-        select.setExpressions(expressions);
-
-        TableFilter shadowFilter = new TableFilter(session, shadowTable, null, true, select);
-        select.addTableFilter(shadowFilter, true);
-
-        Table sessionMarkingTable = database.getSchema("MAC").getTableOrView(session, "SESSION_MARKING");
-        TableFilter sessionMarkingFilter = new TableFilter(session, sessionMarkingTable, null, true, select);
-        Expression joinExpression = new Comparison(session, Comparison.EQUAL,
-            new ExpressionColumn(database, shadowSchema.getName(), shadowTable.getName(), "MARKING_ID"),
-            new ExpressionColumn(database, "MAC", sessionMarkingTable.getName(), "MARKING_ID")
-        );
-        shadowFilter.addJoin(sessionMarkingFilter, false, false, joinExpression);
-        select.init();
-        return select;
     }
 
     @Override

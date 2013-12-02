@@ -57,6 +57,12 @@ public class AlterTableAddConstraint extends SchemaCommand {
         this.ifNotExists = ifNotExists;
     }
 
+    @Override
+    protected Schema getSchema() {
+        Schema s = super.getSchema();
+        return s.isRestricted() ? s.asRestricted().shadowSchema : s;
+    }
+
     private String generateConstraintName(Table table) {
         if (constraintName == null) {
             constraintName = getSchema().getUniqueConstraintName(session, table);

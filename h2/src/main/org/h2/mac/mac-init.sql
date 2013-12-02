@@ -1,3 +1,5 @@
+create schema mac;
+
 -- tables
 
 create table mac.marking (
@@ -33,6 +35,10 @@ alter table mac.marking_compartment
 
 alter table mac.user_credential
   add primary key ( user_name, credential_id );
+
+-- indexes
+
+create index mac.index_marking_sensitivity on mac.marking ( sensitivity_id );
 
 -- foreign keys
 

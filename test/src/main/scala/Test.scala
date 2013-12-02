@@ -1,37 +1,14 @@
-/*
-
-
-Step 1: Add marking_id column to shadow tables
-Step 2: Update query for restricted views to filter on marking id
-Step 3: Modify insert syntax to allow specifying marking id
-
-Miscellaneous to-do:
- - The restricted view shouldn't select marking_id
-
-
-
-
-How to store a marking:
- - Add marking_id column to every shadow table
- - marking_id default value is 0, which is hard-coded to the empty marking
-
-How to read a marking:
- - Built-in function RENDER_MARKING converts marking id to string
- - Each restricted view selects
-      RENDER_MARKING(ShadowTable.marking_id) marking
-
-How to write a marking:
- - Modified insert/update syntax
-
- */
 import java.sql.{Connection, DriverManager}
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL.{using => createJooqContext}
 import scala.collection.mutable
+import scala.concurrent.duration._
 
 object Test {
 
   Class.forName("org.h2.Driver")
+
+  val filename = s"db-${new java.util.Date().getTime}"
 
   def main(args: Array[String]): Unit = {
 
@@ -39,7 +16,7 @@ object Test {
 
     try {
       {
-        val connection = DriverManager.getConnection("jdbc:h2:mem:store")
+        val connection = DriverManager.getConnection(s"jdbc:h2:$filename")
         connections += connection
         val jooq = createJooqContext(connection, SQLDialect.H2)
 
@@ -169,7 +146,7 @@ object Test {
       }
       {
 
-        val connection = DriverManager.getConnection("jdbc:h2:mem:store", "chris", "abc")
+        val connection = DriverManager.getConnection(s"jdbc:h2:$filename", "chris", "abc")
         connections += connection
         val jooq = createJooqContext(connection, SQLDialect.H2)
 
@@ -199,40 +176,57 @@ object Test {
             |insert into vault.doc2 ( title, x ) values ( 'moonbase.doc', 2 );
           """.stripMargin
         )
-        println("vault.doc")
-        println(jooq.fetch(
-          """
-            |select * from vault.doc;
-          """.stripMargin
-        ))
-        println("vault.doc2")
-        println(jooq.fetch(
-          """
-            |select * from vault.doc2;
-          """.stripMargin
-        ))
-        println("vault.doc join vault.doc2, title only")
-        println(jooq.fetch(
-          """
-            |select vault.doc.title from vault.doc join vault.doc2
-            |on vault.doc.title = vault.doc2.title;
-          """.stripMargin
-        ))
-        println("session_marking")
-        println(jooq.fetch(
-          """
-            |select * from mac.session_marking;
-          """.stripMargin
-        ))
-        println("vault_shadow.doc")
-        println(jooq.fetch(
-          """
-            |select * from vault_shadow.doc;
-          """.stripMargin
-        ))
+        chrisSelects(jooq)
       }
     } finally {
       connections foreach (_.close)
     }
+
+    Thread.sleep(1.second.toMillis)
+
+    {
+      val connection = DriverManager.getConnection(s"jdbc:h2:$filename", "chris", "abc")
+      try {
+        val jooq = createJooqContext(connection, SQLDialect.H2)
+        chrisSelects(jooq)
+      } finally {
+        connection.close()
+      }
+    }
+  }
+
+  def chrisSelects(jooq: org.jooq.DSLContext) {
+
+    println("vault.doc")
+    println(jooq.fetch(
+      """
+        |select * from vault.doc;
+      """.stripMargin
+    ))
+    println("vault.doc2")
+    println(jooq.fetch(
+      """
+        |select * from vault.doc2;
+      """.stripMargin
+    ))
+    println("vault.doc join vault.doc2, title only")
+    println(jooq.fetch(
+      """
+        |select vault.doc.title from vault.doc join vault.doc2
+        |on vault.doc.title = vault.doc2.title;
+      """.stripMargin
+    ))
+    println("session_marking")
+    println(jooq.fetch(
+      """
+        |select * from mac.session_marking;
+      """.stripMargin
+    ))
+    println("vault_shadow.doc")
+    println(jooq.fetch(
+      """
+        |select * from vault_shadow.doc;
+      """.stripMargin
+    ))
   }
 }

@@ -37,7 +37,7 @@ public class RegularSchema extends SchemaBase {
 
     private User owner;
     private final boolean system;
-    private final boolean shadow;
+    public final String restrictedSchemaName;
 
     private final HashMap<String, Table> tablesAndViews;
     private final HashMap<String, Index> indexes;
@@ -64,7 +64,7 @@ public class RegularSchema extends SchemaBase {
      * @param system if this is a system schema (such a schema can not be
      *            dropped)
      */
-    public RegularSchema(Database database, int id, String schemaName, User owner, boolean system, boolean shadow) {
+    public RegularSchema(Database database, int id, String schemaName, User owner, boolean system, String restrictedSchemaName) {
         tablesAndViews = database.newStringMap();
         indexes = database.newStringMap();
         sequences = database.newStringMap();
@@ -75,7 +75,7 @@ public class RegularSchema extends SchemaBase {
         initDbObjectBase(database, id, schemaName, Trace.SCHEMA);
         this.owner = owner;
         this.system = system;
-        this.shadow = shadow;
+        this.restrictedSchemaName = restrictedSchemaName;
     }
 
     @Override
@@ -198,7 +198,7 @@ public class RegularSchema extends SchemaBase {
 
     @Override
     public void add(SchemaObject obj) {
-        if (SysProperties.CHECK && obj.getSchema() != this && !shadow) {
+        if (SysProperties.CHECK && obj.getSchema() != this) {
             throwInternalError("wrong schema");
         }
         String name = obj.getName();
