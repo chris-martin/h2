@@ -52,13 +52,11 @@ class Trial(params: Test.Params) {
 
   def apply(): Result = {
 
-    val pageTexts = Vector.fill(numberOfDocuments * pagesPerDocument.max)(randomPageText).iterator
     val titles = Vector.fill(numberOfDocuments)(randomTitle).iterator
     val dates = Vector.fill(numberOfDocuments)(randomDate).iterator
     val personNames = Vector.fill(numberOfPeople)(randomPersonName).iterator
     val authorIds = Vector.fill(numberOfDocuments)(randomFrom(1L to numberOfPeople)).iterator
-    val markings = Vector.fill(numberOfDocuments * (pagesPerDocument.max + 1))(randomMarking).iterator
-    val pageCounts = Vector.fill(numberOfDocuments)(randomFrom(pagesPerDocument)).iterator
+    val markings = Vector.fill(numberOfDocuments)(randomMarking).iterator
 
     val connections = new mutable.ArrayBuffer[Connection]()
 
@@ -161,52 +159,14 @@ class Trial(params: Test.Params) {
             )
           }
 
-          for {
-            docId <- 1 to numberOfDocuments
-            pageNumber <- 1 to pageCounts.next()
-          } {
-            jooq.execute(
-              s"""
-              |insert into vault.page
-              |  ${if (restricted) "marked ?" else ""}
-              |  ( doc_id, page_number, page_text )
-              |  values ( ?, ?, ? )
-            """.stripMargin,
-              (
-                ( if (restricted) Seq(markings.next()) else Nil )
-                  ++ Seq(
-                  docId: java.lang.Long,
-                  pageNumber: java.lang.Long,
-                  pageTexts.next()
-                )
-                ): _*
-            )
-          }
-
         })
 
         result = result.copy(select = time("select") {
 
           jooq fetch s"""
-            |select
-            |  document.doc_id,
-            |  document.title,
-            |  document.released,
-            |  document.author_id,
-            |  author.person_name author_name,
-            |  page.page_number page,
-            |  ${if (restricted) """
-                 |  document.marking doc_marking,
-                 |  page.marking page_marking,
-            |  """.stripMargin else ""}
-            |  page.page_text
+            |select document.title
             |from vault.document
-            |left join vault.page
-            |on document.doc_id = page.doc_id
-            |left join public.person author
-            |on document.author_id = author.person_id
-            |order by released desc, page desc
-            |limit 1000;
+            |where released < parsedatetime('1971 1 Jan', 'yyyy d MMM');
           """.stripMargin
         })
       }
