@@ -1,3 +1,5 @@
+scalaVersion := "2.10.3"
+
 libraryDependencies += "h2-mac" % "h2-mac" % "0.1-SNAPSHOT" from "file:///mnt/tb/h2/h2/bin/h2-1.3.174.jar"
 
 resolvers += "Sonatype Releases" at "http://oss.sonatype.org/content/repositories/releases"
