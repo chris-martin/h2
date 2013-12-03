@@ -4,34 +4,72 @@ import org.jooq.impl.DSL.{using => createJooqContext}
 import scala.collection.mutable
 import scala.util.Random
 
-object Test extends testing.Benchmark {
+object Test {
 
   Class.forName("org.h2.Driver")
 
-  val restricted = true
+  case class Params(
+    restricted: Boolean,
+    inMemory: Boolean,
+    numberOfDocuments: Int = 5000,
+    pagesPerDocument: Range = 1 to 100,
+    numberOfCompartments: Int = 100,
+    numberOfPeople: Int = 1000
+  )
 
-  def run() = {
+  def main(args: Array[String]) {
+    for (a <- Seq(
+      Params(restricted = true, inMemory = true),
+      Params(restricted = false, inMemory = true),
+      Params(restricted = true, inMemory = false),
+      Params(restricted = false, inMemory = false)
+    )) {
+      for (b <- Seq(1000, 2000, 3000, 5000, 10000, 20000)) {
+        print(new Trial(a.copy(numberOfDocuments = b))())
+        print("\t")
+      }
+      print("\n")
+    }
+  }
 
-    val filename = s"db-${new java.util.Date().getTime}"
+}
 
-    implicit val random: Random = new Random
+case class Result(insert: Int = 0, select: Int = 0)
+
+class Trial(params: Test.Params) {
+
+  import params._
+
+  val url =
+    if (inMemory)
+      s"jdbc:h2:mem:${new java.util.Date().getTime}"
+    else
+      s"jdbc:h2:db-${new java.util.Date().getTime}"
+
+  val random: Random = new Random {
+
+  }
+
+  def apply(): Result = {
+
+    val pageTexts = Vector.fill(numberOfDocuments * pagesPerDocument.max)(randomPageText).iterator
+    val titles = Vector.fill(numberOfDocuments)(randomTitle).iterator
+    val dates = Vector.fill(numberOfDocuments)(randomDate).iterator
+    val personNames = Vector.fill(numberOfPeople)(randomPersonName).iterator
+    val authorIds = Vector.fill(numberOfDocuments)(randomFrom(1L to numberOfPeople)).iterator
+    val markings = Vector.fill(numberOfDocuments * (pagesPerDocument.max + 1))(randomMarking).iterator
+    val pageCounts = Vector.fill(numberOfDocuments)(randomFrom(pagesPerDocument)).iterator
 
     val connections = new mutable.ArrayBuffer[Connection]()
 
+    var result = new Result()
+
     try {
       {
-        val connection = DriverManager.getConnection(s"jdbc:h2:$filename")
+        val connection = DriverManager.getConnection(url)
         connections += connection
         val jooq = createJooqContext(connection, SQLDialect.H2)
         jooq execute s"""
-          |CREATE ROLE basic;
-          |
-          |CREATE USER alice PASSWORD '';
-          |GRANT basic TO alice;
-          |
-          |CREATE USER bob PASSWORD '';
-          |GRANT basic TO bob;
-          |
           |CREATE TABLE person (
           |  person_id IDENTITY,
           |  person_name VARCHAR(255)
@@ -50,6 +88,10 @@ object Test extends testing.Benchmark {
           |  ADD FOREIGN KEY ( author_id )
           |  REFERENCES public.person ( person_id );
           |
+          |CREATE INDEX ON vault.document ( released );
+          |
+          |CREATE INDEX ON vault.document ( author_id );
+          |
           |CREATE TABLE vault.page (
           |  doc_id       BIGINT  NOT NULL,
           |  page_number  INT     NOT NULL,
@@ -59,144 +101,168 @@ object Test extends testing.Benchmark {
           |ALTER TABLE vault.page
           |  ADD PRIMARY KEY ( doc_id, page_number );
           |
+          |CREATE INDEX ON vault.page ( page_number );
+          |
           |ALTER TABLE vault.page
           |  ADD FOREIGN KEY ( doc_id )
           |  REFERENCES vault.document ( doc_id );
           |
+          |CREATE ROLE basic;
+          |CREATE USER alice PASSWORD '';
+          |GRANT basic TO alice;
           |GRANT INSERT, SELECT ON person TO basic;
-          |
           |GRANT INSERT, SELECT on vault.document to basic;
-          |
           |GRANT INSERT, SELECT on vault.page to basic;
         """.stripMargin
 
         for {
-          marking <- ('A' to 'G').map(x => s"1/$x") ++ ('A' to 'G').map(x => s"2/$x") :+ "3/-"
-        } jooq.execute("""grant marking ? TO alice;""", marking)
+          marking <- (1 to numberOfCompartments/4).map(x => s"1/c$x") ++
+            (numberOfCompartments/4 + 1 to numberOfCompartments/2).map(x => s"2/c$x") :+
+            "3/-"
+        } {
+          jooq.execute("""grant marking ? TO alice;""", marking)
+        }
       }
       {
-        val connection = DriverManager.getConnection(s"jdbc:h2:$filename", "alice", "")
+        val connection = DriverManager.getConnection(url, "alice", "")
         connections += connection
         val jooq = createJooqContext(connection, SQLDialect.H2)
 
-        val personIds: Seq[Long] = for (_ <- 1 to 10) yield {
-          jooq.execute(
-            """
-              |insert into public.person
-              |  ( person_name )
-              |  values ( ? )
-            """.stripMargin,
-            randomPersonName
-          )
-          jooq.lastID().longValue
-        }
+        result = result.copy(insert = time("insert") {
 
-        val docIds: Seq[Long] = for (_ <- 1 to 100) yield {
-          jooq.execute(
-            s"""
-              |insert into vault.document
-              |  ${if (restricted) "marked ?" else ""}
-              |  ( title, released, author_id )
-              |  values ( ?, ?, ? )
-            """.stripMargin,
-            (
-              ( if (restricted) Seq(randomMarking) else Nil )
-              ++ Seq(
-                randomTitle,
-                randomDate,
-                randomFrom[Long](personIds): java.lang.Long
-              )
-            ): _*
-          )
-          jooq.lastID().longValue
-        }
+          for (i <- 1 to numberOfPeople) {
+            jooq.execute(
+              """
+                |insert into public.person
+                |  ( person_id, person_name )
+                |  values ( ?, ? )
+              """.stripMargin,
+              i: java.lang.Long,
+              personNames.next()
+            )
+          }
 
-        for {
-          docId <- docIds
-          pageNumber <- 1 to randomFrom(1 to 10)
-        } {
-          jooq.execute(
-            s"""
+          for (_ <- 1 to numberOfDocuments) {
+            jooq.execute(
+              s"""
+                |insert into vault.document
+                |  ${if (restricted) "marked ?" else ""}
+                |  ( title, released, author_id )
+                |  values ( ?, ?, ? )
+              """.stripMargin,
+              (
+                ( if (restricted) Seq(markings.next()) else Nil )
+                ++ Seq(
+                  titles.next(),
+                  dates.next(),
+                  authorIds.next(): java.lang.Long
+                )
+              ): _*
+            )
+          }
+
+          for {
+            docId <- 1 to numberOfDocuments
+            pageNumber <- 1 to pageCounts.next()
+          } {
+            jooq.execute(
+              s"""
               |insert into vault.page
               |  ${if (restricted) "marked ?" else ""}
               |  ( doc_id, page_number, page_text )
               |  values ( ?, ?, ? )
             """.stripMargin,
-            (
-              ( if (restricted) Seq(randomMarking) else Nil )
-              ++ Seq(
-                docId: java.lang.Long,
-                pageNumber: java.lang.Long,
-                randomPageText
-              )
-            ): _*
-          )
-        }
+              (
+                ( if (restricted) Seq(markings.next()) else Nil )
+                  ++ Seq(
+                  docId: java.lang.Long,
+                  pageNumber: java.lang.Long,
+                  pageTexts.next()
+                )
+                ): _*
+            )
+          }
 
-        jooq fetch s"""
-          |select
-          |  document.doc_id,
-          |  document.title,
-          |  document.released,
-          |  document.author_id,
-          |  author.person_name author_name,
-          |  page.page_number page,
-          |  ${if (restricted) """
-               |  document.marking doc_marking,
-               |  page.marking page_marking,
-          |  """.stripMargin else ""}
-          |  page.page_text
-          |from vault.document
-          |left join vault.page
-          |on document.doc_id = page.doc_id
-          |left join public.person author
-          |on document.author_id = author.person_id
-          |limit 20;
-        """.stripMargin
+        })
+
+        result = result.copy(select = time("select") {
+
+          jooq fetch s"""
+            |select
+            |  document.doc_id,
+            |  document.title,
+            |  document.released,
+            |  document.author_id,
+            |  author.person_name author_name,
+            |  page.page_number page,
+            |  ${if (restricted) """
+                 |  document.marking doc_marking,
+                 |  page.marking page_marking,
+            |  """.stripMargin else ""}
+            |  page.page_text
+            |from vault.document
+            |left join vault.page
+            |on document.doc_id = page.doc_id
+            |left join public.person author
+            |on document.author_id = author.person_id
+            |order by released desc, page desc
+            |limit 1000;
+          """.stripMargin
+        })
       }
     } finally {
       connections foreach (_.close)
     }
+
+    result
   }
 
-  def randomFrom[A](xs: Seq[A])(implicit r: Random): A =
-    xs((r.nextDouble * xs.size).toInt)
+  def randomFrom[A](xs: Seq[A]): A =
+    xs((random.nextDouble * xs.size).toInt)
 
-  def randomPersonName(implicit r: Random): String = (
+  def randomPersonName: String = (
     randomFrom('A' to 'Z') +:
       List.fill(randomFrom(6 to 10))(randomFrom('a' to 'z'))
     ).mkString
 
-  def randomTitle(implicit r: Random): String = (
+  def randomTitle: String = (
     randomFrom('A' to 'Z')
       +: List.fill(randomFrom(12 to 20))(randomFrom(('a' to 'z') ++ List.fill(8)(' ')))
       :+ randomFrom('a' to 'z')
     ).mkString
 
-  def randomMarking(implicit r: Random): String =
+  def randomMarking: String =
     randomSensitivity match {
       case "0" => ""
       case s => (s +: randomCompartments).mkString("/")
     }
 
-  def randomSensitivity(implicit r: Random): String =
+  def randomSensitivity: String =
     randomFrom('0' to '3').toString
 
-  def randomCompartments(implicit r: Random): Seq[String] =
-    if (r.nextDouble() < .2)
+  def randomCompartments: Seq[String] =
+    if (random.nextDouble() < .2)
       Seq("-")
     else
-      r.shuffle( ('A' to 'Z').map(_.toString) ).take(1 + r.nextGaussian().abs.toInt)
+      random.shuffle( (1 to numberOfCompartments).map("c" + _) )
+        .take(randomFrom(1 to 5))
 
-  def randomDate(implicit r: Random): java.sql.Date = {
+  def randomDate: java.sql.Date = {
     val d = new java.util.Date(
-      (r.nextDouble() * new java.util.Date(2010-1900, 0, 1).getTime).toLong
+      (random.nextDouble() * new java.util.Date(2010-1900, 0, 1).getTime).toLong
     )
     new java.sql.Date(d.getYear, d.getMonth, d.getDate)
   }
 
-  def randomPageText(implicit r: Random): String =
-    List.fill(randomFrom(50 to 1000)) {
+  def randomPageText: String =
+    List.fill(randomFrom(10 to 50)) {
       randomFrom(('a' to 'z') ++ List.fill(8)(' '))
     }.mkString
+
+  def time(name: String)(f: => Unit): Int = {
+    val a = System.currentTimeMillis()
+    f
+    val b = System.currentTimeMillis()
+    (b-a).toInt
+  }
 }
