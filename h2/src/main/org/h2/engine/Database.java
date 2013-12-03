@@ -118,6 +118,7 @@ public class Database implements DataHandler {
     private FileLock lock;
     private WriterThread writer;
     private boolean starting;
+    private boolean macInitialized;
     private TraceSystem traceSystem;
     private Trace trace;
     private final int fileLockMethod;
@@ -717,6 +718,7 @@ public class Database implements DataHandler {
         }
 
         Mac.initializeMacSchema(this);
+        macInitialized = true;
     }
 
     private void startServer(String key) {
@@ -2148,7 +2150,7 @@ public class Database implements DataHandler {
      * @return true if the database is still starting
      */
     public boolean isStarting() {
-        return starting;
+        return starting || !macInitialized;
     }
 
     /**
