@@ -38,7 +38,32 @@ alter table mac.user_credential
 
 -- indexes
 
-create index mac.index_marking_sensitivity on mac.marking ( sensitivity_id );
+create index mac.index_marking_compartment_id_list
+on mac.marking ( compartment_id_list );
+
+create index mac.index_marking_sensitivity_id
+on mac.marking ( sensitivity_id );
+
+create index mac.index_marking_sensitivity
+  on mac.marking ( sensitivity_id );
+
+create index mac.index_sensitivity_name
+  on mac.sensitivity ( name );
+
+create index mac.index_compartment_name
+  on mac.compartment ( name );
+
+create index mac.index_credential_sensitivity_id
+  on mac.credential ( sensitivity_id );
+
+create index mac.index_credential_compartment_id
+  on mac.credential ( compartment_id );
+
+create index mac.index_user_credential_user_name
+on mac.user_credential ( user_name );
+
+create index mac.index_user_credential_credential_id
+on mac.user_credential ( credential_id );
 
 -- foreign keys
 
