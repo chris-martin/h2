@@ -52,7 +52,7 @@ public class Marking {
             return marking;
         }
 
-        Scanner scanner = new Scanner(markingString).useDelimiter("/*");
+        Scanner scanner = new Scanner(markingString).useDelimiter("/");
 
         // sensitivity
         if (!scanner.hasNext()) {
