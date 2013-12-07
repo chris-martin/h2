@@ -18,18 +18,15 @@ object Test {
   )
 
   def main(args: Array[String]) {
-    for (a <- Seq(
-      Params(restricted = true, inMemory = true),
-      Params(restricted = false, inMemory = true),
-      Params(restricted = true, inMemory = false),
-      Params(restricted = false, inMemory = false)
-    )) {
-      for (b <- Seq(1000, 2000, 3000, 5000, 10000, 20000)) {
-        print(new Trial(a.copy(numberOfDocuments = b))())
-        print("\t")
-      }
-      print("\n")
-    }
+    val p = Params(
+      restricted = true,
+      inMemory = true,
+      numberOfDocuments = 1000,
+      numberOfCompartments = 10,
+      numberOfPeople = 10,
+      pagesPerDocument = 1 to 3
+    )
+    new Trial(p)()
   }
 
 }
@@ -52,11 +49,13 @@ class Trial(params: Test.Params) {
 
   def apply(): Result = {
 
+    val pageTexts = Vector.fill(numberOfDocuments * pagesPerDocument.max)(randomPageText).iterator
     val titles = Vector.fill(numberOfDocuments)(randomTitle).iterator
     val dates = Vector.fill(numberOfDocuments)(randomDate).iterator
     val personNames = Vector.fill(numberOfPeople)(randomPersonName).iterator
     val authorIds = Vector.fill(numberOfDocuments)(randomFrom(1L to numberOfPeople)).iterator
-    val markings = Vector.fill(numberOfDocuments)(randomMarking).iterator
+    val markings = Vector.fill(numberOfDocuments * (pagesPerDocument.max + 1))(randomMarking).iterator
+    val pageCounts = Vector.fill(numberOfDocuments)(randomFrom(pagesPerDocument)).iterator
 
     val connections = new mutable.ArrayBuffer[Connection]()
 
@@ -107,7 +106,9 @@ class Trial(params: Test.Params) {
           |
           |CREATE ROLE basic;
           |CREATE USER alice PASSWORD '';
+          |CREATE USER bob PASSWORD '';
           |GRANT basic TO alice;
+          |GRANT basic TO bob;
           |GRANT INSERT, SELECT ON person TO basic;
           |GRANT INSERT, SELECT on vault.document to basic;
           |GRANT INSERT, SELECT on vault.page to basic;
@@ -120,56 +121,101 @@ class Trial(params: Test.Params) {
         } {
           jooq.execute("""grant marking ? TO alice;""", marking)
         }
+        for {
+          marking <- (numberOfCompartments/2 + 1 to 3*numberOfCompartments/4).map(x => s"1/c$x") ++
+            (3*numberOfCompartments/4 + 1 to numberOfCompartments).map(x => s"2/c$x") :+
+            "2/-"
+        } {
+          jooq.execute("""grant marking ? TO bob;""", marking)
+        }
+
+        for (i <- 1 to numberOfPeople) {
+          jooq.execute(
+            """
+              |insert into public.person
+              |  ( person_id, person_name )
+              |  values ( ?, ? )
+            """.stripMargin,
+            i: java.lang.Long,
+            personNames.next()
+          )
+        }
+
+        for (_ <- 1 to numberOfDocuments) {
+          jooq.execute(
+            s"""
+              |insert into vault.document
+              |  ${if (restricted) "marked ?" else ""}
+              |  ( title, released, author_id )
+              |  values ( ?, ?, ? )
+            """.stripMargin,
+            (
+              ( if (restricted) Seq(markings.next()) else Nil )
+              ++ Seq(
+                titles.next(),
+                dates.next(),
+                authorIds.next(): java.lang.Long
+              )
+            ): _*
+          )
+        }
+
+        for {
+          docId <- 1 to numberOfDocuments
+          pageNumber <- 1 to pageCounts.next()
+        } {
+          jooq.execute(
+            s"""
+            |insert into vault.page
+            |  ${if (restricted) "marked ?" else ""}
+            |  ( doc_id, page_number, page_text )
+            |  values ( ?, ?, ? )
+          """.stripMargin,
+            (
+              ( if (restricted) Seq(markings.next()) else Nil )
+                ++ Seq(
+                docId: java.lang.Long,
+                pageNumber: java.lang.Long,
+                pageTexts.next()
+              )
+              ): _*
+          )
+        }
+
       }
-      {
-        val connection = DriverManager.getConnection(url, "alice", "")
+
+      for (user <- Seq("alice", "bob")) {
+        val connection = DriverManager.getConnection(url, user, "")
         connections += connection
         val jooq = createJooqContext(connection, SQLDialect.H2)
 
-        result = result.copy(insert = time("insert") {
-
-          for (i <- 1 to numberOfPeople) {
-            jooq.execute(
-              """
-                |insert into public.person
-                |  ( person_id, person_name )
-                |  values ( ?, ? )
-              """.stripMargin,
-              i: java.lang.Long,
-              personNames.next()
-            )
-          }
-
-          for (_ <- 1 to numberOfDocuments) {
-            jooq.execute(
-              s"""
-                |insert into vault.document
-                |  ${if (restricted) "marked ?" else ""}
-                |  ( title, released, author_id )
-                |  values ( ?, ?, ? )
-              """.stripMargin,
-              (
-                ( if (restricted) Seq(markings.next()) else Nil )
-                ++ Seq(
-                  titles.next(),
-                  dates.next(),
-                  authorIds.next(): java.lang.Long
-                )
-              ): _*
-            )
-          }
-
-        })
-
         result = result.copy(select = time("select") {
 
-          jooq fetch s"""
-            |select document.title
+          println(jooq fetch s"""
+            |select
+            |  document.doc_id,
+            |  document.title,
+            |  document.released,
+            |  document.author_id,
+            |  author.person_name author_name,
+            |  page.page_number page,
+            |  ${if (restricted) """
+                 |  document.marking doc_marking,
+                 |  page.marking page_marking,
+            |  """.stripMargin else ""}
+            |  page.page_text
             |from vault.document
-            |where released < parsedatetime('1971 1 Jan', 'yyyy d MMM');
-          """.stripMargin
+            |left join vault.page
+            |on document.doc_id = page.doc_id
+            |left join public.person author
+            |on document.author_id = author.person_id
+            |where page.page_number is not null
+            |order by released desc, page desc
+            |limit 20;
+          """.stripMargin)
         })
       }
+
     } finally {
       connections foreach (_.close)
     }
