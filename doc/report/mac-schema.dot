@@ -1,0 +1,14 @@
+digraph g {
+  graph [rankdir="LR"]
+  node[shape = "record"]
+  "marking" [ label = "Mac.Marking | <marking_id> marking_id: identity | <sensitivity_id> sensitivity_id: bigint | <compartment_id> compartment_id_list: clob" ]
+  "sensitivity" [ label = "Mac.Sensitivity | <sensitivity_id> sensitivity_id: identity | name: varchar" ]
+  "compartment" [ label = "Mac.Compartment | <compartment_id> compartment_id: identity | name: varchar" ]
+  "marking_compartment" [ label = "Mac.Marking_Compartment | <marking_id> marking_id: bigint | <compartment_id> compartment_id: bigint" ]
+  "credential" [ label = "Mac.Credential | <credential_id> credential_id: identity | <sensitivity_id> sensitivity_id: bigint | <compartment_id> compartment_id: bigint" ]
+  "user_credential" [ label = "Mac.User_Credential | user_name: varchar | <credential_id> credential_id: bigint" ]
+  "marking":sensitivity_id -> "sensitivity":sensitivity_id
+  "marking_compartment":marking_id -> "marking":marking_id
+  "marking_compartment":compartment_id -> "compartment":compartment_id
+  "user_credential":credential_id -> "credential":credential_id
+}

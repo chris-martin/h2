@@ -1,0 +1,9 @@
+digraph g {
+  graph [rankdir="LR"]
+  node[shape = "record"]
+  "Public.Person" [ label = "Public.Person | <person_id> person_id: identity | person_name: varchar" ]
+  "Vault.Document" [ label = "Vault.Document | <doc_id> doc_id: identity | title: varchar | released: date | <author_id> author_id" ]
+  "Vault.Page" [ label = "Vault.Page | <doc_id> doc_id: bigint | page_number: int | page_text: clob" ]
+  "Vault.Document":author_id -> "Public.Person":person_id
+  "Vault.Document":doc_id -> "Vault.Page":doc_id [dir=back]
+}
